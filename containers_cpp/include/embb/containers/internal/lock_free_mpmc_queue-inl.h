@@ -82,7 +82,7 @@ capacity(capacity),
 #pragma warning(push)
 #pragma warning(disable:4355)
 #endif
-  delete_pointer_callback(*this, &LockFreeMPMCQueue<T>::DeletePointerCallback),
+  delete_pointer_callback(*this, &LockFreeMPMCQueue<T, ValuePool>::DeletePointerCallback),
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
