@@ -23,7 +23,7 @@
 # POSSIBILITY OF SUCH DAMAGE.
 
 project (EMBB)
-cmake_minimum_required (VERSION 2.8.9)
+cmake_minimum_required (VERSION 2.8.7)
 
 # Version number
 set (EMBB_BASE_VERSION_MAJOR 0)
