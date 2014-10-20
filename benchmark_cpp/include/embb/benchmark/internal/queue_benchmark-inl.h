@@ -73,7 +73,7 @@ QueueBenchmark<TQueue>::
 template< typename TQueue >
 void QueueBenchmark<TQueue>::
 Run() {  
-  switch (callArgs.Scenario()) {
+  switch (callArgs.ScenarioId()) {
     case Scenario::SCENARIO__ENQUEUE_DEQUEUE_PAIRS:
       Console::WriteStep("Scenario: Enqueue/Dequeue Pairs");
       RunScenario_0_EnqueueDequeuePairs(); 
@@ -302,7 +302,9 @@ RunScenario_4_CapacityBuffer()
         producer_id, 
         producer_id, 
         callArgs,
-        callArgs.NumAllocsPerIt()));
+        callArgs.NumAllocsPerIt(), 
+        // sleep after each iteration:
+        callArgs.QParam()));
   }
   for (unsigned int consumer_id = 0; 
        consumer_id < callArgs.NumConsumers();
@@ -350,9 +352,6 @@ template< typename TQueue >
 void QueueBenchmark<TQueue>::QueueProducerConsumerThread::
 Task() 
 {
-  while (!this->IsRunning()) { 
-    embb::base::Thread::CurrentYield();
-  }
   for (size_t i = 0; i < this->NumIterations(); ++i) {
     if (this->IsStopped()) {
       break; 
@@ -373,7 +372,6 @@ Task()
         if (this->QuitOnFailedProduce()) {
           return; 
         }
-        Console::WriteStatus("!!! Dequeue failed");
         throw ::std::runtime_error("Dequeue failed");
       }
       else {
@@ -394,7 +392,6 @@ Task()
         if (this->QuitOnFailedConsume()) {
           return; 
         }
-        Console::WriteStatus("!!! Dequeue failed");
         throw ::std::runtime_error("Dequeue failed");
       }
       else {
@@ -411,9 +408,6 @@ template< typename TQueue >
 void QueueBenchmark<TQueue>::ProducerThread::
 Task() 
 {
-  while (!this->IsRunning()) {  
-    embb::base::Thread::CurrentYield(); 
-  }
   for (size_t i = 0; i < this->callArgs.NumIterations(); ++i) {
     if (this->IsStopped()) {
       break;
@@ -433,7 +427,6 @@ Task()
         if (this->IsStopped() || this->QuitOnFailedProduce()) {
           return; 
         }
-        Console::WriteStatus("!!! Enqueue failed");
         throw ::std::runtime_error("Enqueue failed");
       }      
       this->Measurements().MeasureAdd(
@@ -450,9 +443,6 @@ void QueueBenchmark<TQueue>::ConsumerThread::
 Task() 
 {
   element_t element;
-  while (!this->IsRunning()) { 
-    embb::base::Thread::CurrentYield(); 
-  }
   for (size_t i = 0; i < this->callArgs.NumIterations(); ++i) {
     // To avoid compiler warning
     bool forever = this->NumConsumeElements() == 0;

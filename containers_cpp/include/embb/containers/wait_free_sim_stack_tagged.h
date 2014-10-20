@@ -207,11 +207,11 @@ private:
   typedef bool state_t;
   typedef union int_aligned32_t {
     int32_t v ;
-    char pad[EMBB_CONTAINERS_CACHE_LINE_SIZE];
+    char pad[EMBB_CACHE_LINE_SIZE];
   } int_aligned32_t;
   typedef union int_aligned64_t {
     EMBB_CONTAINERS_CACHE_ALIGN int64_t v;
-    char pad[EMBB_CONTAINERS_CACHE_LINE_SIZE];
+    char pad[EMBB_CACHE_LINE_SIZE];
   } int_aligned64_t;
   
   // In Numerical Recipes in C: The Art of Scientific Computing 

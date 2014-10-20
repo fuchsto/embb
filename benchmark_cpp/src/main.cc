@@ -24,26 +24,21 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <embb/base/perf/timer.h>
-
-#include <embb/benchmark/internal/console.h>
+#include <embb/benchmark/unit.h>
 #include <embb/benchmark/call_args.h>
-#include <embb/benchmark/internal/self_test.h>
 #include <embb/benchmark/report.h>
-
 #include <embb/benchmark/benchmark_runner.h>
+#include <embb/benchmark/internal/self_test.h>
+#include <embb/benchmark/internal/console.h>
 #include <embb/benchmark/queues/queue_benchmark_runner.h>
 #include <embb/benchmark/queues/queue_benchmark_report.h>
-
 #include <embb/benchmark/pools/pool_benchmark_runner.h>
 #include <embb/benchmark/pools/pool_benchmark_report.h>
-
 #include <embb/benchmark/stacks/stack_benchmark_runner.h>
 #include <embb/benchmark/stacks/stack_benchmark_report.h>
-
 #include <embb/benchmark/sets/set_benchmark_runner.h>
 #include <embb/benchmark/sets/set_benchmark_report.h>
-
+#include <embb/base/perf/timer.h>
 #include <embb/base/thread.h>
 
 #include <memory>
@@ -53,18 +48,7 @@
 
 using embb::base::perf::Timer;
 using embb::benchmark::internal::Console;
-using embb::benchmark::CallArgs;
-using embb::benchmark::Report;
-using embb::benchmark::BenchmarkRunner;
-using embb::benchmark::MichaelScottQueueTpBenchmarkRunner;
-using embb::benchmark::MichaelScottQueueApBenchmarkRunner;
-using embb::benchmark::WaitFreeQueueBenchmarkRunner;
-using embb::benchmark::WaitFreeQueuePhaselessBenchmarkRunner;
-using embb::benchmark::WaitFreeArrayValuePoolBenchmarkRunner;
-using embb::benchmark::LockFreeTreeValuePoolBenchmarkRunner;
-using embb::benchmark::WaitFreeCompartmentValuePoolBenchmarkRunner;
-using embb::benchmark::WaitFreeSimStackTaggedBenchmarkRunner;
-using embb::benchmark::LockFreeStackBenchmarkRunner;
+using namespace embb::benchmark;
 
 int confirmExit() {
   ::std::cout << ::std::endl;
@@ -89,16 +73,14 @@ int main(int argc, char* argv[])
   CallArgs params;
  
 #if !defined(NDEBUG)
-  std::cout << "!!!! Running a debug build !!!!" << std::endl; 
+  std::cout << "!!!! Running a debug build !!!!!!!!!!!!!!!!!!!!!!!" << std::endl; 
 #endif
 
   try {
     params.ParseArgs(argc, argv);
-    params.Print();
   }
   catch (::std::runtime_error & e) {
-    CallArgs::Usage();
-    ::std::cerr << "Runtime error caught: " << e.what() << ::std::endl;
+    ::std::cerr << "Failed: " << e.what() << ::std::endl;
     return confirmExit();
   }
 
@@ -111,44 +93,44 @@ int main(int argc, char* argv[])
 
     Console::WriteValue("EMBB threads", embb::base::Thread::GetThreadsMaxCount());
 
-    if (params.Benchmark() == CallArgs::SELF_TEST) {
+    if (params.UnitId() == Unit::SELF_TEST) {
       embb::benchmark::internal::SelfTest::Run(); 
       return confirmExit();
     }
     
-    else if (params.Benchmark() == CallArgs::MICHAEL_SCOTT_QUEUE_TP) {
+    else if (params.UnitId() == Unit::MICHAEL_SCOTT_QUEUE_TP) {
       MichaelScottQueueTpBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::MICHAEL_SCOTT_QUEUE_AP) {
+    else if (params.UnitId() == Unit::MICHAEL_SCOTT_QUEUE_AP) {
       MichaelScottQueueApBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::KOGAN_PETRANK_QUEUE) {
+    else if (params.UnitId() == Unit::KOGAN_PETRANK_QUEUE) {
       WaitFreeQueueBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::KOGAN_PETRANK_QUEUE_PL) {
+    else if (params.UnitId() == Unit::KOGAN_PETRANK_QUEUE_PL) {
       WaitFreeQueuePhaselessBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::WAITFREE_COMPARTMENT_POOL) {
+    else if (params.UnitId() == Unit::WAITFREE_COMPARTMENT_POOL) {
       WaitFreeCompartmentValuePoolBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::WAITFREE_ARRAY_POOL) {
+    else if (params.UnitId() == Unit::WAITFREE_ARRAY_POOL) {
       WaitFreeArrayValuePoolBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::LOCKFREE_TREE_POOL) {
+    else if (params.UnitId() == Unit::LOCKFREE_TREE_POOL) {
       LockFreeTreeValuePoolBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::WAIT_FREE_SIM_STACK_TAGGED) {
+    else if (params.UnitId() == Unit::WAIT_FREE_SIM_STACK_TAGGED) {
       WaitFreeSimStackTaggedBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
-    else if (params.Benchmark() == CallArgs::LOCK_FREE_STACK) {
+    else if (params.UnitId() == Unit::LOCK_FREE_STACK) {
       LockFreeStackBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }

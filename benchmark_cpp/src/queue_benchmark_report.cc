@@ -50,7 +50,7 @@ QueueBenchmarkReport(const QueueLatencyMeasurements & measurements)
       args, 
       measurements.MeasurementsListBufferLatency())
 {
-  if (args.Scenario() == 4) {
+  if (args.ScenarioId() == Scenario::SCENARIO__CAPACITY_BUFFER) {
     n_ops = bufLatencyReport.LatenciesAggregated().size(); 
   }
   else {
@@ -87,16 +87,11 @@ Print() const {
     (throughputTime / 1000000.0f); 
   unsigned int prec   = 3;
 
-  std::cout << "RemoveAny -----|---------------------------" << std::endl; 
-  std::cout << "               | " << std::setw(21) << numRemoveOps << " ops" << std::endl;
+  std::cout << "RemoveAny -----|" << std::endl; 
   removeAnyLatencyReport.Print();
-  
-  std::cout << "Add -----------|---------------------------" << std::endl;  
-  std::cout << "               | " << std::setw(21) << numAddOps << " ops" << std::endl;
+  std::cout << "Add -----------|" << std::endl;  
   addLatencyReport.Print();
-  
-  std::cout << "Buffer --------|---------------------------" << std::endl; 
-  std::cout << "               | " << std::setw(21) << numBufferOps << " ops" << std::endl;
+  std::cout << "Buffer --------|" << std::endl; 
   bufLatencyReport.Print();
   std::cout << "Total ---------|---------------------------" << std::endl;
   std::cout << "               | Operations " 

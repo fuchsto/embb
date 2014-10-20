@@ -27,13 +27,12 @@
 #ifndef EMBB_CONTAINERS_WAIT_FREE_PHASELESS_QUEUE_H_
 #define EMBB_CONTAINERS_WAIT_FREE_PHASELESS_QUEUE_H_
 
-#define EMBB_CONTAINERS_USE_HP_OLD_ 0
-
+#include <embb/containers/internal/flags.h>
 
 #include <embb/containers/wait_free_array_value_pool.h>
 #include <embb/containers/indexed_object_pool.h>
 
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#if EMBB_CONTAINERS_USE_HP_OLD
 #include <embb/base/internal/guarded_pointers/i_guarded_pointers.h>
 #include <embb/base/internal/guarded_pointers/hazard_pointers.h>
 #else
@@ -90,7 +89,7 @@ public:
     if (this != &other) {
       next_idx.Store(other.next_idx.Load());
       deq_aid.Store(other.deq_aid.Load());
-      value = other.value;
+      value   = other.value;
       enq_aid = other.enq_aid;
     }
     return *this;
@@ -175,7 +174,7 @@ private:
   /// Number of guards per thread. 
   static const size_t num_guards = 2; 
   /// Null-pointer for hazard pointers
-  static const index_t UndefinedGuard = 0; 
+  static const index_t UndefinedGuard = Node_t::UndefinedIndex; 
   /**
    * Helper class for operation descriptions. 
    * Used instead of bit-field struct for portability. 
@@ -232,7 +231,7 @@ private:
   /// Capacity of the queue instance. 
   size_t size;
 
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#if EMBB_CONTAINERS_USE_HP_OLD
   typedef embb::base::internal::guarded_pointers::CallbackInstanceFromObject<self_t, index_t>
     hp_callback_t;
   /// Callback instance for release of guarded node indices. 
@@ -305,8 +304,16 @@ public:
    */
   WaitFreePhaselessQueue(size_t size, int numThreads = 0) :
     size(size),
+// Disable "this is used in base member initializer" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4355)
+#endif
     delete_pointer_callback(*this, &self_t::DeleteNodeCallback),
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+#if EMBB_CONTAINERS_USE_HP_OLD
     hp(delete_pointer_callback),
 #else
     hp(delete_pointer_callback, UndefinedGuard, 2),
@@ -321,9 +328,8 @@ public:
     // retired nodes not eligible for reuse due to hazard pointers: 
     node_pool_size(
       // numThreads caused trouble here
-      retiredListMaxSize(embb::base::Thread::GetThreadsMaxCount()) *
-      embb::base::Thread::GetThreadsMaxCount() + 
-      (num_states * (size + 1))),
+      retiredListMaxSize(num_states) * num_states + 
+      size + 1),
     nodePool(node_pool_size, nullNode)
   {
     assert(sizeof(index_t) == 4); 
@@ -339,9 +345,9 @@ public:
         "Allocation of sentinel node failed");
     }
     sentinelNodeIndex = static_cast<index_t>(sentinelNodePoolIndex);
-    hp.GuardPointer(0, sentinelNodeIndex);
     // Guard sentinel node from deletion for the 
     // life time of the queue: 
+    hp.GuardPointer(0, sentinelNodeIndex);
     headIdx.Store(sentinelNodeIndex);
     tailIdx.Store(sentinelNodeIndex);
     // State of the queue is one operation description per queue accessor. 
@@ -398,8 +404,10 @@ public:
       return false; // Queue is at capacity
     }
     // Guard index of node to be enqueued until enqueue
-    // operation has been completed: 
-    hp.GuardPointer(0, static_cast<index_t>(nodeIndex)); // <<< o/s
+    // operation has been completed. No need to re-validate 
+    // this guard: The node index has not been enqueued yet
+    // and cannot be deleted in between:
+    hp.GuardPointer(0, static_cast<index_t>(nodeIndex));
     // Initialize node in pool: 
     Node_t newNode(element, accessorId);
     nodePool[static_cast<index_t>(nodeIndex)] = newNode;    
@@ -444,7 +452,7 @@ public:
 
     index_t curOpRaw = curOp.Raw; 
     if (!operationDescriptions[accessorId].CompareAndSwap(
-      curOpRaw,
+      curOp.Raw,
       newOp.Raw)) {
       // The threads own operation has changed, 
       // should not happen. 
@@ -565,7 +573,7 @@ private:
         );
         index_t helpOpRaw = helpOp.Raw;
         operationDescriptions[helpAID].CompareAndSwap(
-          helpOpRaw,
+          helpOp.Raw,
           newOp.Raw);
         // Update tail pointer: 
         tailIdx.CompareAndSwap(lastIdx, nextIdx);
@@ -617,7 +625,7 @@ private:
             // CAS without check as possibly another accessor 
             // already helped this dequeue operation. 
             index_t curOpRaw = curOp.Raw;
-            operationDescriptions[accessorId].CompareAndSwap(curOpRaw, newOp.Raw);
+            operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw);
           }
         }
         else {
@@ -646,7 +654,7 @@ private:
             firstIdx // Set node index
           );
           index_t curOpRaw = curOp.Raw;
-          if (!operationDescriptions[accessorId].CompareAndSwap(curOpRaw, newOp.Raw)) {
+          if (!operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw)) {
             // This loop is wait-free as every accessor's operation 
             // will be pending for a limited time only, so continue 
             // and retry is okay. 
@@ -695,11 +703,11 @@ private:
     index_t accessorId = first.DequeueAID().Load();
     if (accessorId != Node_t::UndefinedIndex) {
       OperationDesc curOp(operationDescriptions[accessorId].Load());
-      hp.GuardPointer(0, firstIdx); // <<< o/s
       if (firstIdx == headIdx.Load() && nextIdx != Node_t::UndefinedIndex) {
         // Guard dequeue index until dequeue operation is
         // completed (see Dequeue()). Possibly already guarded 
         // in HelpDequeue(), but guarding twice is okay:       
+        hp.GuardPointer(0, firstIdx); // <<< o/s
 
         // Set state of helped operation to NONPENDING: 
         OperationDesc newOp(
@@ -710,7 +718,7 @@ private:
         // CAS without check as possibly another accessor 
         // already helped this dequeue operation. 
         index_t curOpRaw = curOp.Raw;
-        operationDescriptions[accessorId].CompareAndSwap(curOpRaw, newOp.Raw);
+        operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw);
         headIdx.CompareAndSwap(firstIdx, nextIdx);
       }
     }
@@ -797,9 +805,9 @@ private:
    * \waitfree
    */
   void DeleteNodeCallback(index_t releasedNodeIndex) {
-    if (NodeIsPendingDequeue(releasedNodeIndex)) {
-      return;
-    }
+//  if (NodeIsPendingDequeue(releasedNodeIndex)) {
+//    return;
+//  }
     nodePool.Free(releasedNodeIndex);
   }
 };

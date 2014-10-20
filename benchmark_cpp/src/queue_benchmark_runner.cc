@@ -42,16 +42,14 @@ using internal::Console;
 
 MichaelScottQueueTpBenchmarkRunner::
 MichaelScottQueueTpBenchmarkRunner(const CallArgs & callArgs) 
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-  queue = new concrete_queue_t(args.NumElements());
-  benchmark = new benchmark_t(queue, args);
+: args(callArgs),
+  queue(args.NumElements()) {
+  benchmark = new benchmark_t(&queue, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 MichaelScottQueueTpBenchmarkRunner::Run() {
   Console::WriteHeader("MichaelScottQueue (tree pool)"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();
@@ -66,20 +64,14 @@ MichaelScottQueueTpBenchmarkRunner::Run() {
 
 MichaelScottQueueApBenchmarkRunner::
 MichaelScottQueueApBenchmarkRunner(const CallArgs & callArgs) 
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-
-  queue = new concrete_queue_t(
-    // queue size
-    args.NumElements());
-
-  benchmark = new benchmark_t(queue, args);
+: args(callArgs),
+  queue(args.NumElements()) {
+  benchmark = new benchmark_t(&queue, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 MichaelScottQueueApBenchmarkRunner::Run() {
   Console::WriteHeader("MichaelScottQueue (array pool)"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();
@@ -94,20 +86,14 @@ MichaelScottQueueApBenchmarkRunner::Run() {
 
 WaitFreeQueueBenchmarkRunner::
 WaitFreeQueueBenchmarkRunner(const CallArgs & callArgs) 
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-
-  queue = new concrete_queue_t(
-    // queue size
-    args.NumElements());
-
-  benchmark = new benchmark_t(queue, args);
+: args(callArgs),
+  queue(args.NumElements()) {
+  benchmark = new benchmark_t(&queue, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 WaitFreeQueueBenchmarkRunner::Run() {
   Console::WriteHeader("WaitFreeQueue"); 
-  Console::WriteStep("Running benchmark"); 
   
   Timer runtime;
   benchmark->Run();
@@ -116,10 +102,10 @@ WaitFreeQueueBenchmarkRunner::Run() {
   Console::WriteValue<double>("Execution time", seconds, 3, "s");
   Console::WriteStep("Creating report"); 
 
-  Console::WriteValue("Max phase", queue->MaxPhaseUsed());
+  Console::WriteValue("Max phase", queue.MaxPhaseUsed());
 
   ::std::stringstream sps; 
-  std::vector< uint32_t > phases = queue->DumpPhases();
+  std::vector< uint32_t > phases = queue.DumpPhases();
   std::vector< uint32_t >::iterator p_it;
   std::vector< uint32_t >::const_iterator p_end = phases.end();
   for (p_it = phases.begin(); p_it != p_end; ++p_it) {
@@ -133,21 +119,15 @@ WaitFreeQueueBenchmarkRunner::Run() {
 
 WaitFreeQueuePhaselessBenchmarkRunner::
 WaitFreeQueuePhaselessBenchmarkRunner(const CallArgs & callArgs) 
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-  
-  queue = new concrete_queue_t(
-    // queue size
-    args.NumElements());
-
-  benchmark = new benchmark_t(queue, args);
+: args(callArgs),
+  queue(args.NumElements()) {
+  benchmark = new benchmark_t(&queue, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 WaitFreeQueuePhaselessBenchmarkRunner::
 Run() {
   Console::WriteHeader("WaitFreeQueuePhaseless"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();

@@ -41,14 +41,9 @@ using internal::Console;
 
 LockFreeStackBenchmarkRunner::
 LockFreeStackBenchmarkRunner(const CallArgs & callArgs)
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-
-  stack = new concrete_stack_t(
-    // stack size
-    args.NumElements());
-
-  benchmark = new benchmark_t(stack, args);
+: args(callArgs), 
+  stack(args.NumElements()) {
+  benchmark = new benchmark_t(&stack, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
@@ -69,14 +64,9 @@ LockFreeStackBenchmarkRunner::Run() {
 
 WaitFreeSimStackTaggedBenchmarkRunner::
 WaitFreeSimStackTaggedBenchmarkRunner(const CallArgs & callArgs)
-: args(callArgs) {
-  Console::WriteStep("Preparing unit");
-
-  stack = new concrete_stack_t(
-    // stack size
-    args.NumElements());
-
-  benchmark = new benchmark_t(stack, args);
+: args(callArgs),
+  stack(args.NumElements()) {
+  benchmark = new benchmark_t(&stack, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >

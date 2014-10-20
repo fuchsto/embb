@@ -24,6 +24,7 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <embb/benchmark/scenario.h>
 #include <embb/benchmark/pools/pool_benchmark_report.h>
 #include <embb/base/perf/timer.h>
 
@@ -51,7 +52,7 @@ PoolBenchmarkReport(const PoolLatencyMeasurements & measurements)
     measurements.MeasurementsListAdd()),
   n_ops(measurements.NumOperations())
 {
-  if (args.Scenario() == 2) {
+  if (args.ScenarioId() == Scenario::SCENARIO__FILL_UP) {
     // Fill-up scenario only uses RemoveAny operations
     throughputTime = Timer::FromInterval(
       removeAnyLatencyReport.EarliestStartTimestamp(),
@@ -88,14 +89,10 @@ Print() const {
   size_t numRemoveOps = removeAnyLatencyReport.LatenciesAggregated().size(); 
   size_t numAddOps    = addLatencyReport.LatenciesAggregated().size();
 
-  std::cout << "RemoveAny -----|---------------------------" << std::endl;
-  std::cout << "               | " << std::setw(21) << numRemoveOps << " ops" << std::endl;
+  std::cout << "RemoveAny -----|" << std::endl;
   removeAnyLatencyReport.Print();
-  
-  std::cout << "Add -----------|---------------------------" << std::endl;
-  std::cout << "               | " << std::setw(21) << numAddOps << " ops" << std::endl;
+  std::cout << "Add -----------|" << std::endl;
   addLatencyReport.Print();
-  
   std::cout << "Total ---------|---------------------------" << std::endl;
   std::cout << "               | Operations " 
             << std::setw(7 + prec) << n_ops << std::endl;

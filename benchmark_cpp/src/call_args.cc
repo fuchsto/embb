@@ -24,6 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include <embb/benchmark/scenario.h>
+#include <embb/benchmark/unit.h>
 #include <embb/benchmark/call_args.h>
 #include <embb/benchmark/internal/console.h>
 #include <embb/base/perf/time_measure.h>
@@ -45,66 +47,37 @@ void CallArgs::ParseArgs(int argc, char* argv[]) {
   n_prealloc   = 0;
   n_i_alloc    = 1;
   q_param      = 0;
-  scenario     = 0;
   exec_count   = 0;
-  benchmark    = UNDEFINED;
+  scenario     = Scenario::UNDEFINED;
+  unit_id      = Unit::UNDEFINED;
   timer_type   = embb::base::perf::TimeMeasure::Counter;
 
   if (argc < 2) {
-    throw InvalidParameterException("Invalid number of arguments");
+    Usage();
+    return; 
   }
 
   ::std::string type = argv[1];
-  int firstFlagIndex = 2;
 
-  if (type == "test") {
-    // Self-test requested. 
-    // Ignore other parameters: 
-    benchmark = SELF_TEST;
-    if (argc == 2) {
-      return;
-    }
+  unit_id = Unit::FromUnitName(type);
+
+  if (unit_id == Unit::UNDEFINED) {
+    throw InvalidParameterException("Unknown test unit (data structure)");
+  }
+
+  if (unit_id == Unit::SELF_TEST && argc == 2) {
+    // Self-test requested, no more mandatory parameters
+    return;
   }
 
   // Expecting benchmarked type as first arguments and 
   // at least 2 benchmark parameters each consisting of 
   // 1 flag and 1 parameter value: 
-  if (benchmark != SELF_TEST && argc < (1 + 1 + (2 * 2))) {
+  if (unit_id != Unit::SELF_TEST && argc < (1 + 1 + (2 * 2))) {
     throw InvalidParameterException("Invalid number of arguments");
   }
 
-  else if (type == "michaelscott") {
-    benchmark = MICHAEL_SCOTT_QUEUE_TP;
-  }
-  else if (type == "michaelscott-ap") {
-    benchmark = MICHAEL_SCOTT_QUEUE_AP;
-  }
-  else if (type == "koganpetrank") {
-    benchmark = KOGAN_PETRANK_QUEUE;
-  }
-  else if (type == "koganpetrank-pl") {
-    benchmark = KOGAN_PETRANK_QUEUE_PL;
-  }
-  else if (type == "treepool") {
-    benchmark = LOCKFREE_TREE_POOL;
-  }
-  else if (type == "arraypool") {
-    benchmark = WAITFREE_ARRAY_POOL;
-  }
-  else if (type == "compartmentpool") {
-    benchmark = WAITFREE_COMPARTMENT_POOL;
-  }
-  else if (type == "harrislistset") {
-    benchmark = HARRIS_LIST_SET;
-  }
-  else if (type == "simstack-t") {
-    benchmark = WAIT_FREE_SIM_STACK_TAGGED;
-  }
-  else if (type == "lockfreestack") {
-    benchmark = LOCK_FREE_STACK;
-  }
-  
-  for (int flagIdx = firstFlagIndex; flagIdx < argc; flagIdx += 2) {
+  for (int flagIdx = 2; flagIdx < argc; flagIdx += 2) {
     int paramIdx = flagIdx + 1;
     // Check if param provided for flag: 
     if (paramIdx < argc) {
@@ -139,7 +112,7 @@ void CallArgs::ParseArgs(int argc, char* argv[]) {
         n_threads = static_cast<unsigned int>(atoi(param.c_str()));
       }
       else if (flag == "-s") {
-        scenario = atoi(param.c_str());
+        scenario = static_cast<Scenario::ScenarioId>(atoi(param.c_str()));
       }
       else if (flag == "-i") {
         n_iterations = static_cast<unsigned int>(atoi(param.c_str()));
@@ -183,70 +156,69 @@ void CallArgs::ParseArgs(int argc, char* argv[]) {
       throw InvalidParameterException("Parameter missing");
     }
   }
+  // Validate params:
+  if (IsProducerConsumerBenchmark() && 
+      !Scenario::IsProducerConsumerScenario(scenario)) {
+    throw InvalidParameterException(
+      "Scenario requires -t <nThreads>");
+  }
+  if (IsAllocatorBenchmark() && 
+      !Scenario::IsAllocatorScenario(scenario)) {
+    throw InvalidParameterException(
+      "Scenario requires -p <nProducers> -c <nConsumers>");
+  }
+  Print();
 }
 
 void CallArgs::Usage() {
-  printLn("Usage: embb_base_cpp_benchmark test | <type> <type parameters> -n <elements> -f <output file>");
-  printLn("  ");
-  printLn("  -s                 scenario");
-  printLn("  -n                 num element");
-  printLn("  -i                 num iterations");
-  printLn("  -k                 benchmark execution number");
-  printLn("  -data              measurements output file");
-  printLn("  -summary           summary output file");
-  printLn("  ");
-  printLn("Queue types: ");
-  printLn("  michaelscott     - lock-free - a popular lock-free queue, as a benchmark reference");
-  printLn("  koganpetrank     - wait-free - according to Kogan and Petrank, with hazard pointers");
-  printLn("  koganpetrank-pl  - wait-free - Kogan-Petrank queue without phase");
+  printLn("Usage: embb_benchmark_cpp test | <type> <flags>");
   printLn(" ");
-  printLn("  -p                 num producers");
-  printLn("  -c                 num consumers");
-  printLn("Queue scenarios: ");
-  printLn("   - 0: { Enqueue( n ) }:p || { Dequeue( n ) }:c   - typical continuous stream");
-  printLn("   - 1: { (Enqueue(ia); Dequeue(ia))*i }:t         - enqueue-dequeue pairs standard test");
-  printLn("  ");
-  printLn("x    2: { Enqueue(n/2) };                          - fill queue up to half capacity");
-  printLn("        { Enqueue(n/2) }:p || { Dequeue( i ) }:c   - c consumers try to dequeue i elements");
-  printLn("                                                   - p prodcuers try to enqueue n/2 elements");
-  printLn("                                                   - evaluate for p < c, p > c, i = n");
-  printLn("x    3: { Enqueue(n/2) };                          - fill queue up to half capacity");
-  printLn("        { random(Enqueue(1) | Dequeue(1)) * i }:t  - random decision for enqueue or dequeue");
-  printLn("  ");
-  printLn("Stack types: ");
-  printLn("  freelist         - lock-free - from the IBM freelist");
-  printLn("  waitfreelist     - wait-free - wait-free simulation of the freelist algorithm");
-  printLn("  eliminationstack - wait-free - wait-free simulation the lock-free elimination stack");
-  printLn("  ");
-  printLn("  -p                 num producers");
-  printLn("  -c                 num consumers");
-  printLn("Stack scenarios: ");
-  printLn("x    0: { Push( n ) }:p || { Pop( n ) }:c          - typical messaging with decaying messages");
-  printLn("  ");
-  printLn("x    1: { Push(n/2) };                             - fill queue up to half capacity");
-  printLn("        { Push(n/2) }:p || { Pop( i ) }:c          - c consumers try to dequeue i elements");
-  printLn("                                                   - p prodcuers try to enqueue n/2 elements");
-  printLn("                                                   - evaluate for p < c and p > c");
-  printLn("                                                   - evaluate for p < c, p > c, i = n");
+  printLn("  -s          scenario");
+  printLn("  -n          container capacity");
+  printLn("  -i          number of iterations");
+  printLn("  -ia         number of allocations per iteration");
+  printLn("  -k          benchmark execution number");
+  printLn("  -t          number of threads");
+  printLn("  -p          number of producer threads (forbids -t, requires -c)");
+  printLn("  -c          number of consumer threads (forbids -t, requires -p)");
+  printLn("  -rpre       pre-allocation ratio (percentage)");
+  printLn("  -npre       pre-allocation (number of elements)");
+  printLn("  -data       measurements output file");
+  printLn("  -summary    summary output file");
+  printLn("  -timer      select timer type 'clock' or 'counter' (default)");
+  printLn("  -timerflag  set timer-specific flag. See output of self test for options");
+  printLn(" ");
+  printLn("Scenarios:");
+  printLn("   0: { Enqueue( n ) }:p || { Dequeue( n ) }:c   - typical continuous stream");
+  printLn(" ");
+  printLn("   1: { (Enqueue(ia); Dequeue(ia))*i }:t         - enqueue-dequeue pairs standard test");
+  printLn(" ");
+  printLn("   2: { Enqueue(<prealloc>) };                   - preallocate elements");
+  printLn("      { Enqueue(n/2) }:p || { Dequeue( ia ) }:c  - c consumers try to dequeue i elements");
+  printLn("                                                 - p prodcuers try to enqueue n/2 elements");
+  printLn(" ");
+  printLn("   3: { Enqueue(ia) }:p || { Dequeue( ia ) }:c   - c consumers try to dequeue ia element,");
+  printLn("                                                 - p prodcuers try to enqueue ia elements");
   printLn("  ");
   printLn("Pool types: ");
   printLn("  treepool         - lock-free - value pool based on a tree structure");
   printLn("  arraypool        - wait-free - value pool based on an index array");
   printLn("  compartmentpool  - wait-free - like array pool, but with thread-specific scan pattern");
-  printLn("  -t                 num threads");
-  printLn("  -ia                num allocations per iteration");
-  printLn("  -r                 pre-allocation ratio (decimal part)");
-  printLn("Pool scenarios: ");
+  printLn("Scenarios: 0 1 2 3");
   printLn("  ");
-  printLn("   - 0: enq-deq pairs");
-  printLn("        { Alloc(r*n) }; ");
-  printLn("        { ||(Alloc(ia); Dealloc(ia))*i   }:t ");
+  printLn("Queue types: ");
+  printLn("   michaelscott    - lock-free - a popular lock-free queue, as a benchmark reference");
+  printLn("   michaelscott-ap - lock-free - Michael-Scott queue using array-based pool");
+  printLn("   koganpetrank    - wait-free - according to Kogan and Petrank, with hazard pointers");
+  printLn("   koganpetrank-pl - wait-free - Kogan-Petrank queue without phase counter");
+  printLn("Scenarios: 0 1 2 3 4");
   printLn("  ");
-  printLn("   - 1: enq-deq bulk");
-  printLn("        { (Alloc(r*n);Sleep())*forever } || { (Alloc(ia); Dealloc(ia))*i }:t ");
+  printLn("Stack types: ");
+  printLn("   lockfreestack   - lock-free - Treiber's stack");
+  printLn("   simstack        - wait-free - based on the P-SIM universal construction");
+  printLn("   simstack-t      - wait-free - with tagged pointers instead of hazard pointers");
+  printLn("Scenarios: 0 1 2 3 4");
   printLn("  ");
-  printLn("   - 2: fill-up");
-  printLn("        { ||(Alloc(n/t) }:t ");
 }
 
 void CallArgs::Print() const {
@@ -259,10 +231,9 @@ void CallArgs::Print() const {
   }
   Console::WriteValue("Capacity",      n_elements);
   Console::WriteValue("Iterations",    n_iterations);
-  Console::WriteValue("Preallocation", r_prealloc, "%");
+  Console::WriteValue("Preallocation", r_prealloc, " %");
+  Console::WriteValue("            =", n_prealloc, " elements");
   Console::WriteValue("Allocs / It",   n_i_alloc);
-  Console::WriteValue("Scenario",      scenario);
-  Console::WriteValue("Execution No.", exec_count);
 }
 
 } // namespace benchmark

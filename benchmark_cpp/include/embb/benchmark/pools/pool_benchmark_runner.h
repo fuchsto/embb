@@ -57,16 +57,15 @@ private:
 
   ::std::vector< PoolLatencyMeasurements::node_t > nodes;
 
-  CallArgs          args;
-  concrete_pool_t * pool;
-  benchmark_t *     benchmark;
+  CallArgs        args;
+  concrete_pool_t pool;
+  benchmark_t *   benchmark;
 
 public:
 
   LockFreeTreeValuePoolBenchmarkRunner(const CallArgs & args);
 
   virtual ~LockFreeTreeValuePoolBenchmarkRunner() { 
-    delete pool; 
   }
 
   virtual ::std::auto_ptr< embb::benchmark::Report > Run();
@@ -90,16 +89,15 @@ private:
 
   ::std::vector< PoolLatencyMeasurements::node_t > nodes;
 
-  CallArgs          args;
-  concrete_pool_t * pool;
-  benchmark_t *     benchmark;
+  CallArgs        args;
+  concrete_pool_t pool;
+  benchmark_t *   benchmark;
 
 public:
   
   WaitFreeArrayValuePoolBenchmarkRunner(const CallArgs & args);
 
   virtual ~WaitFreeArrayValuePoolBenchmarkRunner() { 
-    delete pool; 
   }
 
   virtual ::std::auto_ptr< embb::benchmark::Report > Run();
@@ -123,16 +121,15 @@ private:
 
   ::std::vector< PoolLatencyMeasurements::node_t > nodes;
 
-  CallArgs             args;
-  compartment_pool_t * pool;
-  benchmark_t *        benchmark;
+  CallArgs           args;
+  compartment_pool_t pool;
+  benchmark_t *      benchmark;
 
 public:
 
   WaitFreeCompartmentValuePoolBenchmarkRunner(const CallArgs & args);
 
   virtual ~WaitFreeCompartmentValuePoolBenchmarkRunner() {
-    delete pool;
   }
 
   virtual ::std::auto_ptr< embb::benchmark::Report > Run();

@@ -157,18 +157,20 @@ void LatencyReport::Print() const {
     (throughputTime / 1000000.0f);
   // Print summary to STDOUT: 
   std::cout <<
-    "  Latency .....|          Min |       Min 95 |         Mean |       Median |        Max 95 |           Max |" << ::std::endl <<
-    "               | " <<
+    "               " <<
+    "|         Min |       Min 95 |         Mean " << 
+    "|       Median |       Max 95 |          Max " << 
+    "| Operations |         Time | Throughput |" << ::std::endl <<
+    "               |" <<
     std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMin    << " us | " <<
     std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMin95  << " us | " <<
     std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMean   << " us | " <<
     std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMedian << " us | " <<
-    std::fixed << std::setprecision(prec) << std::setw(digits + prec + 1) << latencyMax95  << " us | " <<
-    std::fixed << std::setprecision(prec) << std::setw(digits + prec + 1) << latencyMax    << " us | " << ::std::endl <<
-    "  Throughput ..| " <<
-    std::fixed << std::setw(digits + prec + 3) << numOps << " | " <<
+    std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMax95  << " us | " <<
+    std::fixed << std::setprecision(prec) << std::setw(digits + prec) << latencyMax    << " us | " <<
+    std::fixed << std::setw(digits + prec + 1) << numOps << " | " <<
     std::fixed << std::setprecision(prec) << std::setw(digits + prec) << throughputTime / 1000.0f << " ms" << " | " <<
-    std::setw(digits + prec + 3) << static_cast<int>(opsPerSec) << std::endl;
+    std::setw(digits + prec + 1) << static_cast<int>(opsPerSec) << " |" << std::endl;
 }
 
 void LatencyReport::WriteSamplesToFile(const ::std::string & filepath) const {

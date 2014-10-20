@@ -57,9 +57,9 @@ public:
   typedef StackBenchmark< concrete_stack_t > benchmark_t;
 
 private:  
-  concrete_stack_t * stack;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_stack_t stack;
+  benchmark_t *    benchmark;
 
 public:
   LockFreeStackBenchmarkRunner(const CallArgs & args);
@@ -79,9 +79,9 @@ public:
   typedef StackBenchmark< concrete_stack_t > benchmark_t;
 
 private:  
-  concrete_stack_t * stack;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_stack_t stack;
+  benchmark_t *    benchmark;
 
 public:
   WaitFreeSimStackTaggedBenchmarkRunner(const CallArgs & args);

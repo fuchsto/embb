@@ -33,6 +33,8 @@ include_directories(${EMBB_BENCHMARK_CPP_INCLUDE_DIRS}
 add_executable (embb_benchmark_cpp ${EMBB_BENCHMARK_CPP_SOURCES} ${EMBB_BENCHMARK_CPP_HEADERS})
 target_link_libraries(embb_benchmark_cpp embb_base_cpp embb_base_cpp_perf embb_containers_cpp embb_mtapi_cpp embb_mtapi_c)
 
+CopyBin(BIN embb_benchmark_cpp DEST ${local_install_dir})
+
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/embb
         DESTINATION include FILES_MATCHING PATTERN "*.h")
 install(TARGETS embb_benchmark_cpp DESTINATION lib)

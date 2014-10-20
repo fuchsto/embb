@@ -61,7 +61,7 @@ template< typename TStack >
 void StackBenchmark<TStack>::
 Run() {  
   try {
-    switch (callArgs.Scenario()) {
+    switch (callArgs.ScenarioId()) {
       case Scenario::SCENARIO__ENQUEUE_DEQUEUE_PAIRS:
         Console::WriteStep("Scenario: Enqueue/Dequeue Pairs");
         RunScenario_0_EnqueueDequeuePairs(); 

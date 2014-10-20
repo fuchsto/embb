@@ -51,8 +51,8 @@ WriteSummaryToFile(const ::std::string & filepath, bool writeHeaders) const {
   if (writeHeaders) {
     file << summaryHeaders << std::endl;
   }
-  file << callArgs.Benchmark()      << ","
-       << callArgs.Scenario()       << ","
+  file << callArgs.UnitId()         << ","
+       << callArgs.ScenarioId()     << ","
        << callArgs.NumElements()    << ","
        << callArgs.NumThreads()     << ","
        << callArgs.NumProducers()   << ","

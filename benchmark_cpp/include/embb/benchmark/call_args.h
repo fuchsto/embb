@@ -27,6 +27,8 @@
 #ifndef EMBB_BENCHMARK_CPP_CALL_ARGS_H_
 #define EMBB_BENCHMARK_CPP_CALL_ARGS_H_
 
+#include <embb/benchmark/unit.h>
+#include <embb/benchmark/scenario.h>
 #include <embb/base/perf/timer.h>
 #include <embb/base/perf/time_measure.h>
 
@@ -40,23 +42,6 @@ namespace embb {
 namespace benchmark {
 
 class CallArgs {
-public: 
-  typedef enum {
-    UNDEFINED                  = 0,
-    SELF_TEST                  = 1,
-		MICHAEL_SCOTT_QUEUE_AP     = 2, 
-		MICHAEL_SCOTT_QUEUE_TP     = 3, 
-    KOGAN_PETRANK_QUEUE        = 4, 
-    KOGAN_PETRANK_QUEUE_PL     = 5, 
-    LOCKFREE_TREE_POOL         = 6, 
-    WAITFREE_ARRAY_POOL        = 7, 
-    WAITFREE_COMPARTMENT_POOL  = 8,
-    WAIT_FREE_SIM_STACK        = 9,
-    LOCK_FREE_STACK            = 10,
-    WAIT_FREE_SIM_STACK_TAGGED = 11,
-    HARRIS_LIST_SET            = 12
-  } benchmark_t;
-
 private: 
   size_t n_threads; 
   size_t n_cores; 
@@ -70,8 +55,8 @@ private:
   size_t n_alloc; 
   size_t exec_count; 
   int q_param; 
-  int scenario; 
-  benchmark_t  benchmark;
+  Scenario::ScenarioId scenario; 
+  Unit::UnitId  unit_id;
   ::std::string summary_file; 
   ::std::string data_file; 
   embb::base::perf::TimeMeasure::MeasureMode timer_type; 
@@ -79,10 +64,10 @@ private:
 
 public: 
   inline bool IsProducerConsumerBenchmark() const {
-    return n_producers > 0 || n_consumers > 0; 
+    return (n_producers > 0 || n_consumers > 0);
   }
   inline bool IsAllocatorBenchmark() const {
-    return n_threads > 0; 
+    return (n_threads > 0);
   }
 
 public: 
@@ -105,8 +90,8 @@ public:
     n_alloc(1), 
     exec_count(0),
     q_param(0), 
-    scenario(0),
-    benchmark(UNDEFINED), 
+    scenario(Scenario::UNDEFINED),
+    unit_id(Unit::UNDEFINED), 
     timer_type(embb::base::perf::TimeMeasure::Counter),
     timer_param(0)
   { }
@@ -159,7 +144,8 @@ public:
     return n_i_alloc;  
   }
 
-  /// Incremental number of benchmark run
+  /// Identifying number of benchmark execution 
+  /// within a test series. 
   inline size_t ExecutionCount() const {
     return exec_count;
   }
@@ -180,11 +166,11 @@ public:
     return data_file;
   }
 
-  inline benchmark_t Benchmark() const {
-    return benchmark;
+  inline Unit::UnitId UnitId() const {
+    return unit_id;
   }
 
-  inline int Scenario() const {
+  inline Scenario::ScenarioId ScenarioId() const {
     return scenario; 
   }
 

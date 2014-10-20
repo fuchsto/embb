@@ -70,6 +70,9 @@ public:
   inline bool operator!=(const self_type & rhs){
     return count_value != rhs.count_value;
   }
+  inline difference_type operator-(const self_type & rhs){
+    return static_cast<difference_type>(count_value) - rhs.count_value;
+  }
 
 private:
   size_t count_value;

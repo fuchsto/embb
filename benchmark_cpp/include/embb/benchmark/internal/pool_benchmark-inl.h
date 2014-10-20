@@ -155,7 +155,7 @@ Run() {
     node.nodeIndex   = static_cast<int>(node_index);
     nodes.push_back(node);
   }
-  switch (args.Scenario()) {
+  switch (args.ScenarioId()) {
     case Scenario::SCENARIO__ENQUEUE_DEQUEUE_PAIRS:
       Console::WriteStep("Scenario: Enqueue/Dequeue Pairs");
       RunScenario_0_EnqueueDequeuePairs(); 

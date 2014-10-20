@@ -27,13 +27,12 @@
 #ifndef EMBB_CONTAINERS_WAIT_FREE_QUEUE_H_
 #define EMBB_CONTAINERS_WAIT_FREE_QUEUE_H_
 
-#define EMBB_CONTAINERS_USE_HP_OLD_ 0
-
+#include <embb/containers/internal/flags.h>
 
 #include <embb/containers/wait_free_array_value_pool.h>
 #include <embb/containers/indexed_object_pool.h>
 
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#if EMBB_CONTAINERS_USE_HP_OLD
 #include <embb/base/internal/guarded_pointers/i_guarded_pointers.h>
 #include <embb/base/internal/guarded_pointers/hazard_pointers.h>
 #else
@@ -244,7 +243,7 @@ private:
   /// Capacity of the queue instance. 
   size_t size;
 
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#if EMBB_CONTAINERS_USE_HP_OLD
   typedef embb::base::internal::guarded_pointers::CallbackInstanceFromObject<self_t, index_t>
     hp_callback_t;
   /// Callback instance for release of guarded node indices. 
@@ -322,8 +321,16 @@ public:
    */
   WaitFreeQueue(size_t size, int numThreads = 0) :
     size(size),
+// Disable "this is used in base member initializer" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4355)
+#endif
     delete_pointer_callback(*this, &self_t::DeleteNodeCallback),
-#ifdef EMBB_CONTAINERS_USE_HP_OLD
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+#if EMBB_CONTAINERS_USE_HP_OLD
     hp(delete_pointer_callback),
 #else
     hp(delete_pointer_callback, UndefinedGuard, 2),

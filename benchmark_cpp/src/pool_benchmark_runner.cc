@@ -36,27 +36,63 @@
 namespace embb {
 namespace benchmark {
 
+class IncrementIterator
+{
+public:
+  typedef IncrementIterator self_type;
+  typedef int      value_type;
+  typedef size_t & reference;
+  typedef size_t * pointer;
+  typedef ::std::forward_iterator_tag iterator_category;
+  typedef int difference_type;
+
+public:
+  inline IncrementIterator(size_t count_value) : 
+    count_value(count_value)
+  { }
+  inline self_type operator++() {
+    self_type i = *this;
+    count_value++;
+    return i;
+  }
+  inline self_type operator++(int){
+    count_value++;
+    return *this;
+  }
+  inline reference operator*() {
+    return count_value;
+  }
+  inline pointer operator->(){
+    return &count_value;
+  }
+  inline bool operator==(const self_type & rhs){
+    return count_value == rhs.count_value;
+  }
+  inline bool operator!=(const self_type & rhs){
+    return count_value != rhs.count_value;
+  }
+  inline difference_type operator-(const self_type & rhs){
+    return static_cast<difference_type>(count_value) - rhs.count_value;
+  }
+
+private:
+  size_t count_value;
+};
+
 using internal::Console;
 
 LockFreeTreeValuePoolBenchmarkRunner::
 LockFreeTreeValuePoolBenchmarkRunner(const CallArgs & callArgs)  
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-  
-  PoolLatencyMeasurements::node_indices_t elements;
-  for (unsigned int node_index = 0; node_index < args.NumElements(); ++node_index) {
-    elements.push_back(
-      static_cast< PoolLatencyMeasurements::node_index_t >(node_index));
-  }
-  pool      = new concrete_pool_t(elements.begin(), elements.end());
-  benchmark = new benchmark_t(pool, args);
+: args(callArgs), 
+  pool(IncrementIterator(0), 
+       IncrementIterator(args.NumElements())) {
+  benchmark = new benchmark_t(&pool, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 LockFreeTreeValuePoolBenchmarkRunner::
 Run() {
   Console::WriteHeader("LockFreeTreeValuePool"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime; 
   benchmark->Run();
@@ -71,23 +107,16 @@ Run() {
 
 WaitFreeArrayValuePoolBenchmarkRunner::
 WaitFreeArrayValuePoolBenchmarkRunner(const CallArgs & callArgs) 
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-
-  PoolLatencyMeasurements::node_indices_t elements;
-  for (unsigned int node_index = 0; node_index < args.NumElements(); ++node_index) {
-    elements.push_back(
-      static_cast< PoolLatencyMeasurements::node_index_t >(node_index));
-  }
-  pool      = new concrete_pool_t(elements.begin(), elements.end());
-  benchmark = new benchmark_t(pool, args);
+: args(callArgs),
+  pool(IncrementIterator(0), 
+       IncrementIterator(args.NumElements())) {
+  benchmark = new benchmark_t(&pool, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 WaitFreeArrayValuePoolBenchmarkRunner::
 Run() {
   Console::WriteHeader("WaitFreeArrayValuePool"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();
@@ -102,37 +131,17 @@ Run() {
 
 WaitFreeCompartmentValuePoolBenchmarkRunner::
 WaitFreeCompartmentValuePoolBenchmarkRunner(const CallArgs & callArgs)
-: args(callArgs) {
-  Console::WriteStep("Preparing unit"); 
-  unsigned int nThreads = embb::base::Thread::GetThreadsMaxCount(); 
-  int k = args.QParam();
-  if (k <= 0) { 
-    k = 5; 
-  }
-  size_t cRange = (args.NumElements() * static_cast<size_t>(k)) / 100; 
-  size_t cSize  = cRange / nThreads;
-  cRange = cSize * nThreads; 
-  size_t nTotal = args.NumElements() +
-    ((nThreads - 1) * cSize); 
-  PoolLatencyMeasurements::node_indices_t elements;
-  for (size_t node_index = 0; node_index <= nTotal; ++node_index) {
-    elements.push_back(
-      static_cast< PoolLatencyMeasurements::node_index_t >(node_index));
-  }
-
-  PoolLatencyMeasurements::node_indices_t::iterator end = elements.begin(); 
-  std::advance(end, args.NumElements());
-  pool = new compartment_pool_t(elements.begin(), 
-                                end, 
-                                static_cast<int>(cSize));
-  benchmark = new benchmark_t(pool, args, nTotal);
+: args(callArgs),
+  pool(IncrementIterator(0), 
+       IncrementIterator(args.NumElements()), 
+       args.QParam()) {
+  benchmark = new benchmark_t(&pool, args);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
 WaitFreeCompartmentValuePoolBenchmarkRunner::
 Run() {
   Console::WriteHeader("WaitFreeCompartmentValuePool"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();

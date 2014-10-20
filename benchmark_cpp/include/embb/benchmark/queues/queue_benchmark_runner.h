@@ -60,9 +60,9 @@ public:
   typedef QueueBenchmark< concrete_queue_t > benchmark_t;
 
 private:
-  concrete_queue_t * queue;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_queue_t queue;
+  benchmark_t *    benchmark;
 
 public:
   MichaelScottQueueTpBenchmarkRunner(const CallArgs & args);
@@ -84,9 +84,9 @@ public:
   typedef QueueBenchmark< concrete_queue_t > benchmark_t;
 
 private:
-  concrete_queue_t * queue;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_queue_t queue;
+  benchmark_t *    benchmark;
 
 public:
   MichaelScottQueueApBenchmarkRunner(const CallArgs & args);
@@ -106,9 +106,9 @@ public:
   typedef QueueBenchmark< concrete_queue_t > benchmark_t;
 
 private:
-  concrete_queue_t * queue;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_queue_t queue;
+  benchmark_t *    benchmark;
 
 public:
   WaitFreeQueueBenchmarkRunner(const CallArgs & args);
@@ -128,9 +128,9 @@ public:
   typedef QueueBenchmark< concrete_queue_t > benchmark_t;
 
 private:
-  concrete_queue_t * queue;
-  benchmark_t *      benchmark;
-  CallArgs           args;
+  CallArgs         args;
+  concrete_queue_t queue;
+  benchmark_t *    benchmark;
 
 public:
   WaitFreeQueuePhaselessBenchmarkRunner(const CallArgs & args);

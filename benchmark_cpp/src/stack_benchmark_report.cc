@@ -68,20 +68,15 @@ StackBenchmarkReport(const StackLatencyMeasurements & measurements)
 
 void StackBenchmarkReport::
 Print() const {
-  size_t numRemoveOps = removeAnyLatencyReport.LatenciesAggregated().size();
-  size_t numAddOps    = addLatencyReport.LatenciesAggregated().size();
   double opsPerSec    = static_cast<double>(n_ops) / 
     (throughputTime / 1000000.0f); 
   unsigned int prec   = 3;
   
   std::cout << "RemoveAny -----|" << std::endl;
   removeAnyLatencyReport.Print();
-  
   std::cout << "Add -----------|" << std::endl;
   addLatencyReport.Print();
   std::cout << "Total ---------|---------------------------" << std::endl;
-  std::cout << "               | Operations " 
-            << std::setw(7 + prec) << n_ops << std::endl;
   std::cout << "               | Time       " 
             << std::fixed << std::setprecision(prec) << std::setw(7 + prec) 
             << throughputTime / 1000.0f << " ms" << std::endl;
