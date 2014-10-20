@@ -50,10 +50,12 @@ endif()
 # Note that the help string (second argument) cannot be printed by cmake.
 #
 option(BUILD_TESTS "Specify whether tests should be built" ON)
+option(BUILD_BENCHMARKS "Specify whether benchmark suite should be built" ON)
 option(BUILD_EXAMPLES "Specify whether examples should be built" OFF)
 option(USE_EXCEPTIONS "Specify whether exceptions should be activated in C++" ON)
 option(INSTALL_DOCS "Specify whether Doxygen docs should be installed" ON)
 option(WARNINGS_ARE_ERRORS "Specify whether warnings should be treated as errors" OFF)
+option(USE_PERFORMANCE_API "Specify whether performance counters from PAPI shall be used" OFF)
 
 ## LOCAL INSTALLATION OF SUBPROJECT BINARIES
 #
@@ -135,6 +137,15 @@ else()
   message("-- Building examples disabled (default)")
 endif()
 message("   (set with command line option -DBUILD_EXAMPLES=ON/OFF)")
+# Benchmarks
+if (BUILD_BENCHMARKS STREQUAL ON)
+  message("-- Building benchmark suite enabled (default)")
+  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
+  add_subdirectory(benchmark_cpp)
+else()
+  message("-- Building benchmark suite disabled")
+  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
+endif()
 
 ## INSTALLATION
 #

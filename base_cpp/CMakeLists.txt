@@ -8,6 +8,10 @@ file(GLOB_RECURSE EMBB_BASE_CPP_HEADERS "include/embb/*.h")
 if (BUILD_TESTS STREQUAL ON)
   file(GLOB_RECURSE EMBB_BASE_TEST_SOURCES "test/*.cc" "test/*.h")
 endif()
+if (BUILD_BENCHMARKS STREQUAL ON)
+  file(GLOB_RECURSE EMBB_BASE_CPP_PERF_SOURCES "perf/*.cc" "perf/*.h")
+  file(GLOB_RECURSE EMBB_BASE_CPP_PERF_HEADERS "perf/include/embb/*.h")
+endif()
 
 # Create header file from input file
 configure_file("include/embb/base/internal/cmake_config.h.in" 
@@ -19,6 +23,9 @@ GroupSourcesMSVC(include/embb/base)
 GroupSourcesMSVC(src)
 if (BUILD_TESTS STREQUAL ON)
   GroupSourcesMSVC(test)
+endif()
+if (BUILD_BENCHMARKS STREQUAL ON)
+  GroupSourcesMSVC(perf)
 endif()
 
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -39,6 +46,12 @@ if (BUILD_TESTS STREQUAL ON)
   target_link_libraries(embb_base_cpp_test partest embb_base_cpp embb_base_c
                         ${compiler_libs})
   CopyBin(BIN embb_base_cpp_test DEST ${local_install_dir})
+endif()
+if (BUILD_BENCHMARKS STREQUAL ON)
+  include_directories(perf/include/)
+  add_library (embb_base_cpp_perf ${EMBB_BASE_CPP_PERF_SOURCES} ${EMBB_BASE_CPP_PERF_HEADERS})
+  target_link_libraries(embb_base_cpp_perf embb_base_cpp embb_base_c
+                        ${compiler_libs})
 endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/embb
