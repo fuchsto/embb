@@ -45,6 +45,7 @@ namespace embb {
 namespace benchmark {
 
 using embb::base::perf::Timer;
+using embb::benchmark::internal::Console;
 
 template<typename TPool>
 PoolBenchmark<TPool>::

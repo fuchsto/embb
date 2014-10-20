@@ -36,8 +36,8 @@
 namespace embb {
 namespace containers {
   
-template<typename T, T Undefined, class Allocator, size_t K >
-unsigned int WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+template<typename T, T Undefined, size_t K, class Allocator >
+unsigned int WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 threadId() {
   // For conversion size32_t <-> unsigned int 
   unsigned int tmpIndexValue;
@@ -52,8 +52,8 @@ threadId() {
 #endif
 }
 
-template<typename T, T Undefined, class Allocator, size_t K >
-void WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+template<typename T, T Undefined, size_t K, class Allocator >
+void WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 Free(T element, int index) {
   assert(element != Undefined);
   assert(
@@ -63,8 +63,8 @@ Free(T element, int index) {
   pool[index].Store(element);
 }
 
-template<typename T, T Undefined, class Allocator, size_t K >
-int WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+template<typename T, T Undefined, size_t K, class Allocator >
+int WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 allocateFrom(
   T & element, 
   size_t poolIdxStart,
@@ -93,8 +93,8 @@ allocateFrom(
   return -1; 
 }
 
-template<typename T, T Undefined, class Allocator, size_t K >
-int WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+template<typename T, T Undefined, size_t K, class Allocator >
+int WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 Allocate(T & element) {
   int idx; 
   size_t tId = threadId();
@@ -112,9 +112,9 @@ Allocate(T & element) {
   return -1;
 }
 
-template<typename T, T Undefined, class Allocator, size_t K >
+template<typename T, T Undefined, size_t K, class Allocator >
 template<typename RAI>
-WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 WaitFreeCompartmentValuePool(RAI first, RAI last, int k)
 : k(k), 
   cRange(0), 
@@ -148,8 +148,8 @@ WaitFreeCompartmentValuePool(RAI first, RAI last, int k)
   }
 }
 
-template<typename T, T Undefined, class Allocator, size_t K >
-WaitFreeCompartmentValuePool<T, Undefined, Allocator, K>::
+template<typename T, T Undefined, size_t K, class Allocator >
+WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 ~WaitFreeCompartmentValuePool() {
   allocator.deallocate(pool, size);
 }

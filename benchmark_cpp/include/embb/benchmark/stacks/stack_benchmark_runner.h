@@ -34,7 +34,7 @@
 #include <embb/benchmark/stacks/stack_benchmark_report.h>
 
 #include <embb/containers/lock_free_stack.h>
-#include <embb/containers/wait_free_sim_stack.h>
+#include <embb/containers/wait_free_sim_stack_tagged.h>
 
 #include <memory> 
 #include <algorithm>

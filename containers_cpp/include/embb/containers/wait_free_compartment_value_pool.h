@@ -51,10 +51,12 @@ namespace containers {
  * \tparam Allocator the allocator used to allocate the pool array
  *
  */
-template<typename T,
+template<
+  typename T,
   T Undefined,
-  class Allocator = embb::base::Allocator< embb::base::Atomic<T> >,
-  size_t K = 64 >
+  size_t K = 64,
+  class Allocator = embb::base::Allocator< embb::base::Atomic<T> > 
+>
 class WaitFreeCompartmentValuePool {
 
 private:
