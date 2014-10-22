@@ -21,7 +21,7 @@ namespace internal {
 namespace timer {
 
 /**
- * @brief Timestamp counter (TSC) for POSIX platforms.
+ * Timestamp counter (TSC) for POSIX platforms.
  */
 class TimestampClockPosix : public Timestamp
 { 

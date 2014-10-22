@@ -27,10 +27,13 @@
 function(SetGNUCompilerFlags compiler_libs)
   if(CMAKE_COMPILER_IS_GNUCC OR CMAKE_COMPILER_IS_GNUCXX)
     set(compiler_libs pthread rt PARENT_SCOPE)
+    if(EMBB_USE_PAPI)
+      set(compiler_libs ${compiler_libs} papi)
+    endif()
     # -Wall   -> All warnings
     # -Wextra -> Even more warnings
     # -Werror -> Warnings are errors
-    set(warning_flags "-Wall -Wextra")
+    set(warning_flags "-Wall -Wextra -pedantic")
     if (WARNINGS_ARE_ERRORS STREQUAL ON)
       set(warning_flags "${warning_flags} -Werror")
     endif()

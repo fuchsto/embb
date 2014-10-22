@@ -42,11 +42,12 @@ public:
   inline TimestampClockWin32() {
     FILETIME  tm;
 #if defined(EMBB_BASE_CPP_PERF_TIMER_WIN32_SYSTEM_TIME_PRECISE)
-    /* Windows 8, Windows Server 2012 and later. ---------------- */
+    // Windows 8, Windows Server 2012 and later
     GetSystemTimeAsFileTime(&tm);
+ // Should work according to docs, but doesn't: 
  // GetSystemTimePreciseAsFileTime(&tm);
 #else
-    /* Windows 2000 and later. ---------------------------------- */
+    // Windows 2000 and later
     GetSystemTimeAsFileTime(&tm);
 #endif
     value = (static_cast<counter_t>(tm.dwHighDateTime) << 32) |

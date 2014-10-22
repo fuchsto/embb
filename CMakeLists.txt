@@ -121,6 +121,26 @@ endif()
 message("   (set with command line option -DBUILD_TESTS=ON/OFF)")
 CheckPartestInstall(${BUILD_TESTS} partest_includepath partest_libpath)
 
+## Benchmarks / PAPI
+#
+if (BUILD_BENCHMARKS STREQUAL ON)
+  set(EMBB_BENCHMARKS 1)
+  message("-- Building benchmark suite enabled (default)")
+  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
+  if (USE_PERFORMANCE_API STREQUAL OFF)
+    message("-- Using integrated performance counters (default)")
+  else()
+    message("-- Using performance counters from PAPI")
+    set (EMBB_USE_PAPI 1)
+    set (EMBB_BASE_CPP_PERF_PAPI_LIB "/home/linaro/local/lib/libpapi.a")
+    set (EMBB_BASE_CPP_PERF_PAPI_INC "/home/linaro/local/include")
+  endif()
+  message("   (set with command line option -DUSE_PERFORMANCE_API=ON/OFF)")
+else()
+  message("-- Building benchmark suite disabled")
+  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
+endif()
+
 ## SUBPROJECTS
 #
 add_subdirectory(base_c)
@@ -137,14 +157,8 @@ else()
   message("-- Building examples disabled (default)")
 endif()
 message("   (set with command line option -DBUILD_EXAMPLES=ON/OFF)")
-# Benchmarks
 if (BUILD_BENCHMARKS STREQUAL ON)
-  message("-- Building benchmark suite enabled (default)")
-  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
   add_subdirectory(benchmark_cpp)
-else()
-  message("-- Building benchmark suite disabled")
-  message("   (set with command line option -DBUILD_BENCHMARKS=ON/OFF)")
 endif()
 
 ## INSTALLATION
