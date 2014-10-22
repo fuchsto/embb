@@ -90,7 +90,11 @@ int embb_time_in(embb_time_t* time, const embb_duration_t* duration) {
   assert(time != NULL);
   assert(duration != NULL);
   struct timespec unix_time;
+#if defined(_POSIX_MONOTONIC_CLOCK)
+  clock_gettime(CLOCK_MONOTONIC, &unix_time);
+#else
   clock_gettime(CLOCK_REALTIME, &unix_time);
+#endif
   time->seconds = unix_time.tv_sec;
   time->nanoseconds = unix_time.tv_nsec;
   int carry = (time->nanoseconds + duration->nanoseconds) / 1000000000;
