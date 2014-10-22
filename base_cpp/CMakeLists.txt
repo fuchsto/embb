@@ -12,6 +12,12 @@ if (BUILD_BENCHMARKS STREQUAL ON)
   file(GLOB_RECURSE EMBB_BASE_CPP_PERF_SOURCES "perf/*.cc" "perf/*.h")
   file(GLOB_RECURSE EMBB_BASE_CPP_PERF_HEADERS "perf/include/embb/*.h")
 endif()
+if (EMBB_USE_PAPI)
+  message("-- papi headers included from ${EMBB_BASE_CPP_PERF_PAPI_INC}")
+  message("-- papi library linked from   ${EMBB_BASE_CPP_PERF_PAPI_LIB}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DPAPI_COUNTERS")
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DPAPI_COUNTERS")
+endif()
 
 # Create header file from input file
 configure_file("include/embb/base/internal/cmake_config.h.in" 
@@ -31,8 +37,7 @@ endif()
 include_directories(${CMAKE_CURRENT_SOURCE_DIR}/include
                     ${CMAKE_CURRENT_BINARY_DIR}/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/../base_c/include
-                    ${CMAKE_CURRENT_BINARY_DIR}/../base_c/include
-                    )
+                    ${CMAKE_CURRENT_BINARY_DIR}/../base_c/include)
 
 ## BUILD TARGETS
 #
@@ -43,15 +48,26 @@ if (BUILD_TESTS STREQUAL ON)
                       ${CMAKE_CURRENT_BINARY_DIR}/../partest/include
                       )
   add_executable (embb_base_cpp_test ${EMBB_BASE_TEST_SOURCES})
-  target_link_libraries(embb_base_cpp_test partest embb_base_cpp embb_base_c
+  target_link_libraries(embb_base_cpp_test
+                        partest 
+                        embb_base_cpp
+                        embb_base_c
                         ${compiler_libs})
   CopyBin(BIN embb_base_cpp_test DEST ${local_install_dir})
 endif()
 if (BUILD_BENCHMARKS STREQUAL ON)
-  include_directories(perf/include/)
-  add_library (embb_base_cpp_perf ${EMBB_BASE_CPP_PERF_SOURCES} ${EMBB_BASE_CPP_PERF_HEADERS})
-  target_link_libraries(embb_base_cpp_perf embb_base_cpp embb_base_c
-                        ${compiler_libs})
+  include_directories(perf/include/
+                      ${EMBB_BASE_CPP_PERF_PAPI_INC})
+  add_library(embb_base_cpp_perf 
+              ${EMBB_BASE_CPP_PERF_SOURCES} 
+              ${EMBB_BASE_CPP_PERF_HEADERS})
+  target_link_libraries(embb_base_cpp_perf 
+                        ${EMBB_BASE_CPP_PERF_PAPI_LIB}
+                        embb_base_cpp
+                        embb_base_c
+                        ${EMBB_BASE_CPP_PERF_PAPI_LIB}
+                        ${compiler_libs}
+                       )
 endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/embb

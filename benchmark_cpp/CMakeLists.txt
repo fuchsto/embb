@@ -1,12 +1,5 @@
 project (project_embb_benchmark_cpp)
 
-if (USE_PERFORMANCE_API STREQUAL OFF)
-  message("-- Using integrated performance counters (default)")
-else()
-  message("-- Using performance counters from PAPI")
-endif()
-message("   (set with command line option -DUSE_PERFORMANCE_API=ON/OFF)")
-
 file(GLOB_RECURSE EMBB_BENCHMARK_CPP_SOURCES "src/*.cc" "src/*.h")
 file(GLOB_RECURSE EMBB_BENCHMARK_CPP_HEADERS "include/*.h")
 
@@ -28,10 +21,21 @@ include_directories(${EMBB_BENCHMARK_CPP_INCLUDE_DIRS}
                     ${CMAKE_CURRENT_SOURCE_DIR}/../mtapi_c/include
                     ${CMAKE_CURRENT_BINARY_DIR}/../mtapi_c/include
                     ${CMAKE_CURRENT_SOURCE_DIR}/../mtapi_cpp/include
-                    ${CMAKE_CURRENT_BINARY_DIR}/../mtapi_cpp/include)
+                    ${CMAKE_CURRENT_BINARY_DIR}/../mtapi_cpp/include
+                    ${EMBB_BASE_CPP_PERF_PAPI_INC}
+                    )
 
 add_executable (embb_benchmark_cpp ${EMBB_BENCHMARK_CPP_SOURCES} ${EMBB_BENCHMARK_CPP_HEADERS})
-target_link_libraries(embb_benchmark_cpp embb_base_cpp embb_base_cpp_perf embb_containers_cpp embb_mtapi_cpp embb_mtapi_c)
+target_link_libraries(embb_benchmark_cpp
+                      embb_containers_cpp
+                      embb_base_cpp_perf 
+                      embb_base_cpp 
+                      embb_mtapi_cpp 
+                      embb_mtapi_c 
+                      embb_base_c 
+                      ${EMBB_BASE_CPP_PERF_PAPI_LIB}
+                      ${compiler_libs}
+                     )
 
 CopyBin(BIN embb_benchmark_cpp DEST ${local_install_dir})
 
