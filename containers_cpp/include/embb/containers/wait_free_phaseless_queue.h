@@ -174,7 +174,7 @@ private:
   /// Number of guards per thread. 
   static const size_t num_guards = 2; 
   /// Null-pointer for hazard pointers
-  static const index_t UndefinedGuard = Node_t::UndefinedIndex; 
+  static const index_t UndefinedGuard = 0; 
   /**
    * Helper class for operation descriptions. 
    * Used instead of bit-field struct for portability. 
@@ -449,8 +449,6 @@ public:
       false,                  // dequeue
       Node_t::UndefinedIndex  // node index
     );
-
-    index_t curOpRaw = curOp.Raw; 
     if (!operationDescriptions[accessorId].CompareAndSwap(
       curOp.Raw,
       newOp.Raw)) {
@@ -571,14 +569,12 @@ private:
           true,    // enqueue
           nextIdx  // node index == helpOp.NodeIndex
         );
-        index_t helpOpRaw = helpOp.Raw;
         operationDescriptions[helpAID].CompareAndSwap(
           helpOp.Raw,
           newOp.Raw);
         // Update tail pointer: 
         tailIdx.CompareAndSwap(lastIdx, nextIdx);
       }
-
 //    hp.ReleaseGuard(0, nextIdx);
     }
   }
@@ -623,8 +619,7 @@ private:
               Node_t::UndefinedIndex // Leave undefined, to signal failed dequeue
             );
             // CAS without check as possibly another accessor 
-            // already helped this dequeue operation. 
-            index_t curOpRaw = curOp.Raw;
+            // already helped this dequeue operation.
             operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw);
           }
         }
@@ -653,7 +648,6 @@ private:
             false, 
             firstIdx // Set node index
           );
-          index_t curOpRaw = curOp.Raw;
           if (!operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw)) {
             // This loop is wait-free as every accessor's operation 
             // will be pending for a limited time only, so continue 
@@ -716,8 +710,7 @@ private:
           curOp.NodeIndex
         );
         // CAS without check as possibly another accessor 
-        // already helped this dequeue operation. 
-        index_t curOpRaw = curOp.Raw;
+        // already helped this dequeue operation.
         operationDescriptions[accessorId].CompareAndSwap(curOp.Raw, newOp.Raw);
         headIdx.CompareAndSwap(firstIdx, nextIdx);
       }

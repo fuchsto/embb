@@ -102,7 +102,7 @@ Allocate(T & element) {
 
 template<typename T, class IndexPool, class Allocator, class IndexAllocator>
 void IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator >::
-Free(size_t elementIndex) {
+Free(int elementIndex) {
   // Call the referenced element's destructor:
   elements[elementIndex].~T();
   // Release index of the element for reuse:

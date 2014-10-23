@@ -51,12 +51,9 @@ private:
   Allocator      allocator; 
   IndexPool *    indexPool; 
   bool * const   indexFlags;
-
-  IndexedObjectPool();
-  
+  IndexedObjectPool();  
   // Prevent copy-construction
   IndexedObjectPool(const IndexedObjectPool&);
-
   // Prevent assignment
   IndexedObjectPool& operator=(const IndexedObjectPool&);
   
@@ -105,7 +102,7 @@ public:
    * \see value_pool_concept
    *
    */
-  void Free(size_t elementIndex);
+  void Free(int elementIndex);
 
   /**
    * Return element from the pool at given index.

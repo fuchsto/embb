@@ -172,6 +172,7 @@ Run() {
       Console::WriteStep("Scenario: Writer-/Reader-intensive Race");
       RunScenario_3_Race(); 
       break;
+    case Scenario::UNDEFINED: break;
     case Scenario::NUM_SCENARIOS: break; 
     default: break; 
   }

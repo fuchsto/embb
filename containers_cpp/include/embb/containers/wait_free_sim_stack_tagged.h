@@ -300,7 +300,6 @@ private:
     ObjectStateUnpadded * localStackState;
     ObjectStateUnpadded * globalStackState;
     unsigned int numPushOperations;
-    OperationDesc tmp_arg;
 
     threadState->bit    ^= (1L << accessorId);
     threadState->toggle  = -threadState->toggle;
@@ -315,7 +314,7 @@ private:
     if (backoffEnabled) {
       EMBB_CONTAINERS_VOLATILE unsigned int k;
       unsigned int backoff_limit = 1000;
-      if (RandomRange(1, numThreads) > 1) {
+      if (RandomRange(1, static_cast<long>(numThreads)) > 1) {
         for (k = 0; k < backoff_limit; k++) {
           ;
         }
@@ -500,7 +499,7 @@ public:
 
     StackThreadState * threadState = &threadStates[tId];
 
-    uint32_t threadBitMask = (1 << tId);
+    uint32_t threadBitMask = (1 << static_cast<uint32_t>(tId));
     if ((threadRegistry & threadBitMask) == 0) {
       // Initialize local state for this thread
       initStackThreadState(threadState, tId);

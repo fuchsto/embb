@@ -94,7 +94,8 @@ Run() {
       Console::WriteStep("Scenario: Capacity Buffer");
       RunScenario_4_CapacityBuffer(); 
       break;
-    case Scenario::NUM_SCENARIOS: break; 
+    case Scenario::NUM_SCENARIOS: break;
+    case Scenario::UNDEFINED: break;
     default: break; 
   }
 }

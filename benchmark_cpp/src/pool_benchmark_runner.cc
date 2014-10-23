@@ -72,7 +72,8 @@ public:
     return count_value != rhs.count_value;
   }
   inline difference_type operator-(const self_type & rhs){
-    return static_cast<difference_type>(count_value) - rhs.count_value;
+    return static_cast<difference_type>(count_value) - 
+      static_cast<difference_type>(rhs.count_value);
   }
 
 private:

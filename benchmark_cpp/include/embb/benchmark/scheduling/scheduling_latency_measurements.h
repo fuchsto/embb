@@ -69,10 +69,10 @@ public:
       latenciesHighFreq.push_back(highFreqMeasurements);
       latenciesLowFreq.push_back(lowFreqMeasurements);
     }
-    internal::Console::WriteValue<double>(
+    internal::Console::WriteValue(
       "@LowFreq", maxLowFreqMeasurements, 
       " measurements");
-    internal::Console::WriteValue<double>(
+    internal::Console::WriteValue(
       "@HighFreq", maxHighFreqMeasurements, 
       " measurements");
   }

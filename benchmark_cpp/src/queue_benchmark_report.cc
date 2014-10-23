@@ -80,9 +80,6 @@ QueueBenchmarkReport(const QueueLatencyMeasurements & measurements)
 
 void QueueBenchmarkReport::
 Print() const {
-  size_t numRemoveOps = removeAnyLatencyReport.LatenciesAggregated().size();
-  size_t numAddOps    = addLatencyReport.LatenciesAggregated().size();
-  size_t numBufferOps = bufLatencyReport.LatenciesAggregated().size();
   double opsPerSec    = static_cast<double>(n_ops) / 
     (throughputTime / 1000000.0f); 
   unsigned int prec   = 3;

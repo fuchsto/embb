@@ -69,8 +69,7 @@ WaitFreeArrayValuePool(ForwardIterator first, ForwardIterator last) {
   // Use the allocator to allocate an array of size dist
   pool = allocator.allocate(dist);
 
-  int i = 0;
-
+  size_t i = 0;
   // Store the elements of the range
   for (ForwardIterator curIter(first); curIter != last; ++curIter) {
     pool[i++] = *curIter;

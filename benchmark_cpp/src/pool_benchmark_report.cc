@@ -86,9 +86,7 @@ Print() const {
   double opsPerSec = static_cast<double>(n_ops) / 
     (throughputTime / 1000000.0f); 
   unsigned int prec = 3;
-  size_t numRemoveOps = removeAnyLatencyReport.LatenciesAggregated().size(); 
-  size_t numAddOps    = addLatencyReport.LatenciesAggregated().size();
-
+  
   std::cout << "RemoveAny -----|" << std::endl;
   removeAnyLatencyReport.Print();
   std::cout << "Add -----------|" << std::endl;
