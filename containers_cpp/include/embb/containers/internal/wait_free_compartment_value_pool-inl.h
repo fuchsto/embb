@@ -61,6 +61,7 @@ Free(T element, int index) {
     index <= static_cast<int>(allocSize));
   // Just put back the element
   pool[index].Store(element);
+  nAllocated.FetchAndSub(1);
 }
 
 template<typename T, T Undefined, size_t K, class Allocator >
@@ -75,8 +76,7 @@ allocateFrom(
     poolIdxStart <= static_cast<unsigned int>(allocSize));
   assert(
     poolIdxEnd >= 0 && 
-    poolIdxEnd <= static_cast<unsigned int>(allocSize));
-  
+    poolIdxEnd <= static_cast<unsigned int>(allocSize));  
   // Try to allocate from threads pool range first: 
   for (size_t i = poolIdxStart; i != poolIdxEnd; ++i) {
     T expected;
@@ -87,6 +87,7 @@ allocateFrom(
     if (pool[i].CompareAndSwap(expected, Undefined)) {
       // when the cas was successful, this element is ours
       element = expected;
+      nAllocated.FetchAndAdd(1);
       return static_cast<int>(i);
     }
   }
@@ -98,10 +99,7 @@ int WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 Allocate(T & element) {
   int idx; 
   size_t tId = threadId();
-  size_t cOffset;
-
-  cOffset = cSplit + (tId * cSize);
-
+  size_t cOffset = cSplit + (tId * cSize);
   // Try to allocate from threads pool range first:
   idx = allocateFrom(element, cOffset, cOffset + cSize);
   if (idx >= 0) return idx; 
@@ -116,11 +114,12 @@ template<typename T, T Undefined, size_t K, class Allocator >
 template<typename RAI>
 WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
 WaitFreeCompartmentValuePool(RAI first, RAI last, size_t k)
-: maxThreads(embb::base::Thread::GetThreadsMaxCount()),
+: size(static_cast<size_t>(std::distance(first, last))),
+  maxThreads(embb::base::Thread::GetThreadsMaxCount()),
   cRange(0), 
   cSplit(0), 
-  cSize(k) {
-  size = static_cast<size_t>(std::distance(first, last));
+  cSize(k),
+  allocSize(size) {
   // Reserve k * t pool elements for compartments: 
   cRange = maxThreads * cSize;
   if (cRange > size) { 
@@ -131,25 +130,26 @@ WaitFreeCompartmentValuePool(RAI first, RAI last, size_t k)
   // Shrink public pool range (cSplit) by size of 
   // compartments, so every thread can allocate 
   // n = size - (k * (maxThreads-1))
-  // elements with worst case latency n. 
+  // elements with worst case latency n.
   cSplit = size - (cSize * maxThreads);
   // use the allocator to allocate array of size size
   pool = allocator.allocate(allocSize);
-  size_t i = 0;
-  for (RAI curIter(first); first != last; ++curIter) {
+  int i = 0;
+  for (RAI curIter(first); curIter != last; ++curIter) {
     pool[i++] = *curIter;
   }
+  nAllocated = 0;
 }
 
 template<typename T, T Undefined, size_t K, class Allocator >
 WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
-WaitFreeCompartmentValuePool(size_t size, size_t k)
-: maxThreads(embb::base::Thread::GetThreadsMaxCount()),
+WaitFreeCompartmentValuePool(size_t numElements, size_t k)
+: size(numElements),
+  maxThreads(embb::base::Thread::GetThreadsMaxCount()),
   cRange(0),
   cSplit(0),
   cSize(k),
-  allocSize() {
-  size = static_cast<size_t>(std::distance(first, last));
+  allocSize(0) {
   // Reserve k * t pool elements for compartments: 
   cRange = maxThreads * cSize;
   if (cRange > size) {
@@ -164,10 +164,11 @@ WaitFreeCompartmentValuePool(size_t size, size_t k)
   allocSize = cSplit + cRange;
   // use the allocator to allocate array of size size
   pool = allocator.allocate(allocSize);
-  size_t i = 0;
+  int i = 0;
   for (RAI curIter(first); i < allocSize; ++curIter) {
     pool[i++] = *curIter;
   }
+  nAllocated = 0;
 }
 
 template<typename T, T Undefined, size_t K, class Allocator >

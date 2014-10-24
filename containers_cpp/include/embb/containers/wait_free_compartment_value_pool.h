@@ -63,6 +63,9 @@ private:
   static unsigned int threadId();
 
 private:
+
+  /// Guaranteed pool capacity
+  size_t size;
   /// Maximum number of threads accessing this pool instance.
   unsigned int maxThreads;
   /// Number of elements in all compartments
@@ -71,9 +74,6 @@ private:
   size_t cSplit; 
   /// Number of elements in a single compartment
   size_t cSize;
-  int nCompartments; 
-  /// Guaranteed pool capacity
-  size_t size;
   /// Actual number of allocated elements in the pool
   size_t allocSize;
   /// Pool elements memory range
@@ -86,6 +86,8 @@ private:
   WaitFreeCompartmentValuePool(const WaitFreeCompartmentValuePool &);
   /// Prevent assignment
   WaitFreeCompartmentValuePool& operator=(const WaitFreeCompartmentValuePool &);
+  /// Number of allocated elements
+  embb::base::Atomic<int> nAllocated;
   
 private: 
 
@@ -152,7 +154,7 @@ public:
    *         where \c n is the number of elements of the pool.
    */
   WaitFreeCompartmentValuePool(
-    size_t size, 
+    size_t numElements,
      /**< [IN] Amount of elements guaranteed to be allocatable by any thread */
     size_t k = K
      /**< [IN] Amount of thread-specific elements per thread */
