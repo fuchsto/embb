@@ -116,7 +116,6 @@ private:
     internal::WaitFreeSimStackNode<T>::Element Element_t;
   typedef EMBB_CONTAINERS_DEPENDANT_TYPENAME 
     internal::WaitFreeSimStackNode<T>::index_t ElementPointer_t;
-
 #if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
   typedef int64_t atomic_int_t;
   typedef uint64_t atomic_uint_t;
@@ -126,23 +125,19 @@ private:
   typedef uint32_t atomic_uint_t;
   typedef uint32_t bitword_t;
 #endif
-
   typedef embb::base::Atomic<bitword_t> AtomicBitVectorValue;
   typedef struct ObjectStateUnpadded {
     bitword_t applied;
-//  ElementPointer_t head;
     typename internal::WaitFreeSimStackNode<T>::index_t head;
     T ret[MAX_THREADS];
   } ObjectStateUnpadded;
   typedef struct ObjectState{
     bitword_t applied;
-//  ElementPointer_t head;
     typename internal::WaitFreeSimStackNode<T>::index_t head;
     T ret[MAX_THREADS];
     int32_t pad[EMBB_CONTAINERS_PAD_CACHE(sizeof(ObjectStateUnpadded))];
   } ObjectState;  
   typedef struct StackThreadState {
-//  PoolStruct thread_pool;
     EMBB_CONTAINERS_CACHE_ALIGN bitword_t mask;
     bitword_t toggle;
     bitword_t bit;
@@ -188,7 +183,7 @@ private:
   /// Allocator for object states
   embb::base::Allocator<ObjectState> objectStateAllocator;
   /// Allocator for announced operation arguments (ArgVal)
-  embb::base::Allocator<OperationArg> OperationArgAllocator;
+  embb::base::Allocator<OperationArg> operationArgAllocator;
   /// Pool for node elements
   ElementPool elementPool;
   /// Pool for indices in object state array
@@ -235,30 +230,6 @@ private:
     return false; 
   }
 
-  inline static uint32_t __bitSearchFirst32(uint32_t v) {
-    // Result of log2(v)
-    uint32_t r;
-    uint32_t shift;
-    r = (v > 0xFFFFu) << 4u;
-    v >>= r;
-    shift = (v > 0xFFu) << 3u;
-    v >>= shift; r |= shift;
-    shift = (v > 0xFu) << 2u;
-    v >>= shift; r |= shift;
-    shift = (v > 0x3u) << 1u;
-    v >>= shift; r |= shift;
-    r |= (v >> 1u);
-    return r;
-  }
-  inline static uint32_t bitSearchFirst(atomic_uint_t v) {
-    uint32_t r = __bitSearchFirst32((uint32_t)v);
-#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
-    return (r == 0u) ? __bitSearchFirst32((uint32_t)(v >> 32u)) + 31u : r;
-#else
-    return r;
-#endif
-  }
-
   inline long Random(void) {
     randomNextTss.Get() = randomNextTss.Get() * 1103515245 + 12345;
     return ((unsigned)(randomNextTss.Get() / 65536) % 32768);
@@ -266,6 +237,15 @@ private:
   inline long RandomRange(long low, long high) {
     const unsigned int rand_max = 32767;
     return low + (long)(((double)high) * (Random() / (rand_max + 1.0)));
+  }
+
+  inline static int bitSearchFirst(atomic_int_t B) {
+    for (int b = 0; b < static_cast<int>(MAX_THREADS); ++b) {
+      if (B & (BitWordOne << b)) {
+        return b;
+      }
+    }
+    return -1;
   }
 
   void initStackThreadState(
@@ -286,7 +266,7 @@ private:
   
   inline RetVal ApplyOperation(
     StackThreadState * threadState,
-    OperationArg      arg,
+    OperationArg arg,
     unsigned int accessorId) {
     unsigned int numPushOperations;
     bitword_t diffs;
@@ -400,6 +380,7 @@ private:
         // Release guard on index of current object state:
         hp.GuardPointer(0, UndefinedGuard);
         if (backoffEnabled && threadState->backoff < maxBackoff) {
+          // Operation failed, reduce backoff limit:
           threadState->backoff <<= 1;
         }
         // Free elements allocated during failed push operations:
@@ -455,8 +436,7 @@ public:
 #pragma warning(pop)
 #endif
     hp(delete_pointer_callback, UndefinedGuard, 1),    
-    threadRegistry(0u) 
-  {
+    threadRegistry(0u) {
     if (numThreads > MAX_THREADS) {
       EMBB_THROW(embb::base::ErrorException,
         "Maximum number of accessor thread exceeded");
@@ -473,7 +453,7 @@ public:
     }
     initialStatePointer =
       static_cast<ElementPointer_t>(initialStateIndex);
-    operationArgs = OperationArgAllocator.allocate(
+    operationArgs = operationArgAllocator.allocate(
       numThreads);
     stackStates = objectStateAllocator.allocate(
       (localPoolSize * numThreads) + 1);
@@ -490,7 +470,7 @@ public:
    * Destructor, deallocating memory
    */
   ~WaitFreeSimStack() {
-    OperationArgAllocator.deallocate(
+    operationArgAllocator.deallocate(
       const_cast<OperationArg *>(operationArgs),
       numThreads);
     objectStateAllocator.deallocate(

@@ -75,76 +75,72 @@ public:
 
 } // namespace internal
 
+/**
+ * Wait-Free Stack using elimination and exponential back-off
+ *
+ * \tparam T               Type of elements contained in the stack
+ * \tparam UndefinedValue  Element value representing and undefined state, 
+ *                         returned as result of Push
+ */
 template<
   typename T             = uint32_t,
   T UndefinedValue       = 0xFFFFFFFF,
-  typename ValuePool     = embb::containers::WaitFreeArrayValuePool<bool, false>,
-  class ElementAllocator = embb::base::Allocator< EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackTaggedNode<T>::Element >,
-  class ValueAllocator   = embb::base::Allocator<T>
+  class ElementAllocator = embb::base::Allocator< 
+    EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackTaggedNode<T>::Element >
 >
 class WaitFreeSimStackTagged
 {
 private: 
-  typedef embb::containers::WaitFreeSimStackTagged<T, UndefinedValue, ValuePool, ElementAllocator> self_t;
+  typedef embb::containers::WaitFreeSimStackTagged<T, UndefinedValue, ElementAllocator> self_t;
+#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
+  static const unsigned int MAX_THREADS = 64;
+#else
   static const unsigned int MAX_THREADS = 32;
+#endif
 
 private:
   typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T Object;
   typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T RetVal;
-  typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T OperationDesc;
-  typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF internal::WaitFreeSimStackTaggedNode<T> Node_t;
-  typedef EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackTaggedNode<T>::Element Element_t;
-  typedef uint32_t index_t;
-  typedef uint32_t atomic_int_t;
+  typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T OperationArg;
+  typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF 
+    internal::WaitFreeSimStackTaggedNode<T> Node_t;
+  typedef EMBB_CONTAINERS_DEPENDANT_TYPENAME 
+    internal::WaitFreeSimStackTaggedNode<T>::Element Element_t;
+#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
+  typedef int64_t atomic_int_t;
+  typedef uint64_t atomic_uint_t;
+  typedef uint64_t bitword_t;
+#else
+  typedef int32_t atomic_int_t;
+  typedef uint32_t atomic_uint_t;
   typedef uint32_t bitword_t;
+#endif
   typedef embb::base::Atomic<bitword_t> AtomicBitVectorValue;
 
   typedef struct ObjectStateUnpadded {
     bitword_t applied;
-    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * head;
+    typename internal::WaitFreeSimStackTaggedNode<T>::Element * head;
     T ret[MAX_THREADS];
   } ObjectStateUnpadded;
   typedef struct ObjectState {
     bitword_t applied;
-    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * head;
+    typename internal::WaitFreeSimStackTaggedNode<T>::Element * head;
     T ret[MAX_THREADS];
     int32_t pad[EMBB_CONTAINERS_PAD_CACHE(sizeof(ObjectStateUnpadded))];
   } ObjectState;
   
-  static const bitword_t BitWordZero = 0; // 0L for x64
-  static const bitword_t BitWordOne  = 1;  // 1L for x64
-
-  inline static uint32_t __bitSearchFirst32(uint32_t v) {
-    // Result of log2(v)
-    register uint32_t r; 
-    register uint32_t shift;
-    r = (v > 0xFFFF) << 4; 
-    v >>= r;
-    shift = (v > 0xFF) << 3; v >>= shift; r |= shift;
-    shift = (v > 0xF)  << 2; v >>= shift; r |= shift;
-    shift = (v > 0x3)  << 1; v >>= shift; r |= shift;
-    r |= (v >> 1);
-    return r;
-  }
-  inline static uint32_t bitSearchFirst(uint64_t v) {
-    uint32_t r = __bitSearchFirst32((uint32_t)v);
-    return (r == 0) ? __bitSearchFirst32((uint32_t)(v >> 32)) + 31 : r;
-  }
-  inline static int bitSearchFirst(atomic_int_t B) {
-    for (int b = 0; b < static_cast<int>(MAX_THREADS); ++b) {
-      if (B & (BitWordOne << b)) {
-        return b; 
-      }
-    }
-    return -1;
-  }
-  
-  /// Allocator for memory used for initial element nodes. 
-  ValueAllocator valueAllocator;
+#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
+  static const bitword_t BitWordZero = 0ui64;
+  static const bitword_t BitWordOne  = 1ui64;
+#else
+  static const bitword_t BitWordZero = 0ui32;
+  static const bitword_t BitWordOne  = 1ui32;
+#endif
+    
   /// Allocator for object states
   embb::base::Allocator<ObjectState> objectStateAllocator;
   /// Allocator for announced operation arguments (ArgVal)
-  embb::base::Allocator<OperationDesc> operationDescAllocator;
+  embb::base::Allocator<OperationArg> operationDescAllocator;
   /// Allocator for node elements
   ElementAllocator elementAllocator;
 
@@ -199,7 +195,7 @@ private:
     EMBB_CONTAINERS_CACHE_ALIGN bitword_t mask;
     bitword_t toggle;
     bitword_t bit;
-    unsigned int local_index;
+    unsigned int localObjectStateIndex;
     unsigned int backoff;
   } StackThreadState;
   typedef uint32_t bitfield_t; 
@@ -214,20 +210,9 @@ private:
     char pad[EMBB_CACHE_LINE_SIZE];
   } int_aligned64_t;
   
-  // In Numerical Recipes in C: The Art of Scientific Computing 
-  embb::base::ThreadSpecificStorage<long> randomNextTss;
-  inline long Random(void) {
-    randomNextTss.Get() = randomNextTss.Get() * 1103515245 + 12345;
-    return((unsigned)(randomNextTss.Get() / 65536) % 32768);
-  }
-  inline long RandomRange(long low, long high) {
-    const unsigned int rand_max = 32767; 
-    return low + (long)(((double)high) * (Random() / (rand_max + 1.0)));
-  }
-
 private:
-  // Shared variables
-  static const int MAX_BACK = 200;
+
+  static const int MAX_BACK = 0x0000FFFFu;
   // Shared stack pointer state
   embb::base::Atomic<atomic_int_t> stackPointer;
   AtomicBitVectorValue atomicTogglesVector;
@@ -236,10 +221,6 @@ private:
   size_t localPoolSize;
   size_t maxBackoff;
   bool backoffEnabled;
-  /// Callback instance for release of guarded node indices. 
-  embb::base::Function< void, uint32_t > delete_pointer_callback;
-  /// Hazard pointer for node index (guards stack top pointer). 
-  embb::containers::internal::HazardPointer< uint32_t > hp;
   /// Maximum number of threads accessing this queue instance. 
   size_t numThreads;
   /// Bitset recording which thread already initialized their local state
@@ -250,11 +231,21 @@ private:
   StackThreadState * threadStates;
 
 private:
-  // Shared variables
-  EMBB_CONTAINERS_CACHE_ALIGN EMBB_CONTAINERS_VOLATILE OperationDesc * announce;
-  EMBB_CONTAINERS_CACHE_ALIGN EMBB_CONTAINERS_VOLATILE ObjectState * stackPool;
+  // Disable "structure was padded due to __declspec(align())" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4324)
+#endif
+  EMBB_CONTAINERS_CACHE_ALIGN EMBB_CONTAINERS_VOLATILE OperationArg *
+    operationArgs;
+  EMBB_CONTAINERS_CACHE_ALIGN EMBB_CONTAINERS_VOLATILE ObjectState *
+    stackStates;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 private:
+
   bool queryThreadId(unsigned int & retIndexValue) {
     unsigned int tmpIndexValue; // For conversion size32_t <-> unsigned int 
     if (embb_internal_thread_index(&tmpIndexValue) == EMBB_SUCCESS) { 
@@ -268,19 +259,40 @@ private:
     retIndexValue = UndefinedValue;
     return false; 
   }
+  
+  // In Numerical Recipes in C: The Art of Scientific Computing 
+  embb::base::ThreadSpecificStorage<long> randomNextTss;
+  inline long Random(void) {
+    randomNextTss.Get() = randomNextTss.Get() * 1103515245 + 12345;
+    return((unsigned)(randomNextTss.Get() / 65536) % 32768);
+  }
+  inline long RandomRange(long low, long high) {
+    const unsigned int rand_max = 32767;
+    return low + (long)(((double)high) * (Random() / (rand_max + 1.0)));
+  }
+
+  inline static int bitSearchFirst(atomic_int_t B) {
+    for (int b = 0; b < static_cast<int>(MAX_THREADS); ++b) {
+      if (B & (BitWordOne << b)) {
+        return b;
+      }
+    }
+    return -1;
+  }
 
   void initStackThreadState(
     StackThreadState * threadState,
     unsigned int accessorId)
   {
-    threadState->local_index = 0;
-    threadState->mask        = 0;
-    threadState->mask       |= (1L << accessorId);
-    threadState->bit         = 0;
-    threadState->bit        ^= (1L << accessorId);
-    threadState->toggle      = 0;
-    threadState->toggle      = -threadState->mask;
-    threadState->backoff     = 1;
+    threadState->localObjectStateIndex = 0;
+    threadState->mask     = 0;
+    threadState->mask    |= (BitWordOne << static_cast<size_t>(accessorId));
+    threadState->bit      = 0;
+    threadState->bit     ^= (BitWordOne << static_cast<size_t>(accessorId));
+    threadState->toggle   = 0;
+    threadState->toggle   = static_cast<atomic_uint_t>(
+      -static_cast<atomic_int_t>(threadState->mask));
+    threadState->backoff  = 1;
     // Initialize thread-specific pool range:
     init_pool(&threadState->thread_pool, sizeof(Element_t));
     // Initialize thread-specific random seed:
@@ -289,7 +301,7 @@ private:
  
   inline RetVal ApplyOperation(
     StackThreadState * threadState,
-    OperationDesc arg,
+    OperationArg arg,
     unsigned int accessorId) 
   {
     bitword_t diffs;
@@ -301,30 +313,32 @@ private:
     ObjectStateUnpadded * globalStackState;
     unsigned int numPushOperations;
 
-    threadState->bit    ^= (1L << accessorId);
-    threadState->toggle  = -threadState->toggle;
+    threadState->bit    ^= (BitWordOne << accessorId);
+    threadState->toggle  = static_cast<atomic_uint_t>(
+      -static_cast<atomic_int_t>(threadState->toggle));
     localStackState = (ObjectStateUnpadded *)(
-      &stackPool[(accessorId * localPoolSize) + threadState->local_index]);
+      &stackStates[(accessorId * localPoolSize) + threadState->localObjectStateIndex]);
     // announce the operation
-    announce[accessorId] = arg;
+    operationArgs[accessorId] = arg;
     // toggle accessorId's bit in atomicTogglesVector, Fetch&Add acts as a 
     // full write-barrier
     atomicTogglesVector.FetchAndAdd(threadState->toggle);
-    // Random backoff if enabled:
-    if (backoffEnabled) {
-      EMBB_CONTAINERS_VOLATILE unsigned int k;
-      unsigned int backoff_limit = 1000;
-      if (RandomRange(1, static_cast<long>(numThreads)) > 1) {
+    for (int spin = 0; spin < 2; ++spin) {
+      // Random backoff if enabled:
+      if (backoffEnabled) {
+        EMBB_CONTAINERS_VOLATILE int k;
+        EMBB_CONTAINERS_VOLATILE long backoff_limit = RandomRange(
+          static_cast<long>(threadState->backoff >> 1u),
+          static_cast<long>(threadState->backoff));
         for (k = 0; k < backoff_limit; k++) {
           ;
         }
       }
-    }
-    for (int spin = 0; spin < 2; ++spin) {
       // read reference to struct ObjectState
       stackPointerCurr.raw_data = stackPointer.Load();
       // read reference of struct ObjectState in a local variable localStackState
-      globalStackState = (ObjectStateUnpadded *)&stackPool[stackPointerCurr.struct_data.index];
+      globalStackState = (ObjectStateUnpadded *)&(
+        stackStates[stackPointerCurr.struct_data.index]);
       // Get all applied operations at this point: 
       diffs = globalStackState->applied;
       // Determine the set of active processes
@@ -347,9 +361,10 @@ private:
       while (diffs != BitWordZero) {
         int threadId = bitSearchFirst(diffs);
         diffs ^= BitWordOne << threadId;
-        T announced_arg = announce[threadId];
+        T announced_arg = operationArgs[threadId];
         if (announced_arg == UndefinedValue) {
           // == POP =======
+          // Collect pending pop operatins in bit vector:
           pendingPopOperations |= (BitWordOne << threadId);
         }
         else {
@@ -370,41 +385,49 @@ private:
       stackPointerNew.struct_data.seq = stackPointerCurr.struct_data.seq + 1;
       // Store index in pool where localStackState will be stored in 
       // new stack pointer's index field:
-      stackPointerNew.struct_data.index = (localPoolSize * accessorId) + threadState->local_index;
+      stackPointerNew.struct_data.index = 
+        (localPoolSize * accessorId) + threadState->localObjectStateIndex;
       if (stackPointerCurr.raw_data == stackPointer.Load() &&
         stackPointer.CompareAndSwap(
             stackPointerCurr.raw_data, 
             stackPointerNew.raw_data)) {
-        threadState->local_index = (threadState->local_index + 1) % localPoolSize;
-        threadState->backoff     = (threadState->backoff >> 1) | 1;
+        threadState->localObjectStateIndex = 
+          (threadState->localObjectStateIndex + 1) % localPoolSize;
+        // Operation succeeded, reduce backoff limit:
+        threadState->backoff = (threadState->backoff >> 1) | 1;
         return localStackState->ret[accessorId];
       }
       else {
         if (backoffEnabled && threadState->backoff < maxBackoff) {
+          // Operation failed, reduce backoff limit:
           threadState->backoff <<= 1;
         }
         rollback(&threadState->thread_pool, numPushOperations);
       }
     }
-    // Return the value found in the record stored:
+    // Return the value from the state stored at the current object 
+    // state index:
     pointer_t sp;
     sp.raw_data = stackPointer.Load();
-    return stackPool[sp.struct_data.index].ret[accessorId];
+    return stackStates[sp.struct_data.index].ret[accessorId];
   }
 
 public:
+
+  /**
+   * \see stack_concept
+   *
+   * \notthreadsafe
+   *
+   * \memory dynamically allocates \c TOOD.
+   */
   WaitFreeSimStackTagged(size_t size, int nThreads = 0, bool enableBackoff = false) :
     size(size),
     localPoolSize(64),
     maxBackoff(MAX_BACK),
     backoffEnabled(enableBackoff),
-    delete_pointer_callback(*this, &self_t::DeleteNodeCallback),
-    hp(delete_pointer_callback, UndefinedValue, 2),
-    // Using int for numThreads so compiler warning is raised 
-    // when size and numThreads are switched by mistake. 
     numThreads(static_cast<size_t>(nThreads)),
-    threadRegistry(0u)
-  {
+    threadRegistry(0u) {
     if (numThreads == 0) {
       numThreads = embb::base::Thread::GetThreadsMaxCount();
     }
@@ -413,9 +436,9 @@ public:
         "Maximum number of accessor thread exceeded");
     }
     maxBackoff = numThreads * 100;    
-    announce   = operationDescAllocator.allocate(
+    operationArgs = operationDescAllocator.allocate(
       numThreads);
-    stackPool  = objectStateAllocator.allocate(
+    stackStates  = objectStateAllocator.allocate(
       (localPoolSize * numThreads) + 1);
     threadStates = stackThreadStateAllocator.allocate(
       numThreads);
@@ -426,23 +449,100 @@ public:
     sp.struct_data.seq = 0;
     stackPointer.Store(sp.raw_data);
     atomicTogglesVector = 0;
-    stackPool[localPoolSize * numThreads].head    = 0;
-    stackPool[localPoolSize * numThreads].applied = 0;
+    stackStates[localPoolSize * numThreads].head    = 0;
+    stackStates[localPoolSize * numThreads].applied = 0;
   }
+
+  /**
+   * Destructor, deallocating memory
+   */
   ~WaitFreeSimStackTagged() {
     operationDescAllocator.deallocate(
-      const_cast<OperationDesc *>(announce),
+      const_cast<OperationArg *>(operationArgs),
       numThreads);
     objectStateAllocator.deallocate(
-      const_cast<ObjectState *>(stackPool),
+      const_cast<ObjectState *>(stackStates),
       localPoolSize * numThreads + 1);
   }
 
+  /**
+   * Removes an element from the pool and returns the element. 
+   * 
+   * \see stack_concept
+   *
+   * \waitfree
+   */
+  bool TryPop(T & retValue) {
+    unsigned int tId;
+    if (!queryThreadId(tId)) {
+      EMBB_THROW(embb::base::ErrorException,
+        "TryPop: Invalid thread ID");
+    }
+    StackThreadState * threadState = &threadStates[tId];
+    uint32_t threadBitMask = (1u << tId);
+    if ((threadRegistry & threadBitMask) == 0) {
+      // Initialize local state for this thread
+      initStackThreadState(threadState, tId);
+      threadRegistry |= threadBitMask;
+    }
+    retValue = ApplyOperation(threadState, UndefinedValue, tId);
+    if (retValue == UndefinedValue) {
+      return false;
+    }
+    return true; 
+  }
+  
+  /**
+   * Adds an element to the pool. 
+   * 
+   * \see stack_concept
+   *
+   * \waitfree
+   */
+  bool TryPush(const T & element) {
+    unsigned int tId;
+    if (!queryThreadId(tId)) {
+      EMBB_THROW(embb::base::ErrorException,
+        "TryPush: Invalid thread ID");
+    }
+    StackThreadState * threadState = &threadStates[tId];
+    uint32_t threadBitMask = (1 << static_cast<uint32_t>(tId));
+    if ((threadRegistry & threadBitMask) == 0) {
+      // Initialize local state for this thread
+      initStackThreadState(threadState, tId);
+      threadRegistry |= threadBitMask;
+    }    
+    ApplyOperation(threadState, element, tId);
+    return true; 
+  }
+
+  /**
+   * Returns the stack instance's capacity.
+   * 
+   * \see stack_concept
+   *
+   * \waitfree
+   */
+  inline size_t GetCapacity() {
+    return size;
+  }
+
 private:
+
+  inline void PushOperation(
+    StackThreadState * threadState,
+    ObjectStateUnpadded * stack,
+    T arg) {
+    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * n;
+    n = (Element_t *)(alloc_obj(&threadState->thread_pool));
+    n->value = arg;
+    n->next = const_cast< Element_t * >(stack->head);
+    stack->head = n;
+  }
+
   inline void PopOperation(
     ObjectStateUnpadded * stack,
-    int accessorId)
-  {
+    int accessorId) {
     if (stack->head != NULL) {
       stack->ret[accessorId] = stack->head->value;
       stack->head = const_cast<Element_t *>(stack->head->next);
@@ -452,73 +552,6 @@ private:
     }
   }
 
-public:
-  bool TryPop(T & retValue) {
-    unsigned int tId;
-    if (!queryThreadId(tId)) {
-      EMBB_THROW(embb::base::ErrorException,
-        "TryPop: Invalid thread ID");
-    }
-
-    StackThreadState * threadState = &threadStates[tId];
-
-    uint32_t threadBitMask = (1u << tId);
-    if ((threadRegistry & threadBitMask) == 0) {
-      // Initialize local state for this thread
-      initStackThreadState(threadState, tId);
-      threadRegistry |= threadBitMask;
-    }
-    retValue = ApplyOperation(threadState, UndefinedValue, tId);
-
-    if (retValue == UndefinedValue) {
-      return false;
-    }
-    return true; 
-  }
-
-private:
-  inline void PushOperation(
-    StackThreadState * threadState,
-    ObjectStateUnpadded * stack,
-    T arg) 
-  {
-    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * n;
-    n           = (Element_t *)(alloc_obj(&threadState->thread_pool));
-    n->value    = arg;
-    n->next     = const_cast< Element_t * >(stack->head);
-    stack->head = n;
-  }
-
-public:
-  bool TryPush(const T & element) {
-    unsigned int tId;
-    if (!queryThreadId(tId)) {
-      EMBB_THROW(embb::base::ErrorException,
-        "TryPush: Invalid thread ID");
-    }
-
-    StackThreadState * threadState = &threadStates[tId];
-
-    uint32_t threadBitMask = (1 << static_cast<uint32_t>(tId));
-    if ((threadRegistry & threadBitMask) == 0) {
-      // Initialize local state for this thread
-      initStackThreadState(threadState, tId);
-      threadRegistry |= threadBitMask;
-    }
-    
-    ApplyOperation(threadState, element, tId);
-    return true; 
-  }
-
-  inline size_t GetCapacity() {
-    return size;
-  }
-
-  void DeactivateCurrentThread() { 
-  }
-
-  void DeleteNodeCallback(index_t /* releasedNodeIndex */) {
-  }
 };
 
 }
