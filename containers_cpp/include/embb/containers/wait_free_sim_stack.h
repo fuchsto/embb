@@ -30,6 +30,7 @@
 #include <embb/containers/internal/hazard_pointer.h>
 #include <embb/containers/internal/returning_true_iterator.h>
 #include <embb/containers/wait_free_compartment_value_pool.h>
+#include <embb/containers/wait_free_array_value_pool.h>
 #include <embb/containers/indexed_object_pool.h>
 
 #include <embb/base/thread_specific_storage.h>
@@ -88,8 +89,10 @@ template<
   T UndefinedValue      = 0xFFFFFFFF,
   size_t LocalPoolSize  = 64,
   class ElementPool     = IndexedObjectPool< 
-    EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackNode<T>::Element, 
-    WaitFreeCompartmentValuePool< bool, false, LocalPoolSize > >,
+    EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackNode<T>::Element,
+//  WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
+    WaitFreeArrayValuePool< bool, false >
+  >,
   class StateIndexPool  = WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
 >
 class WaitFreeSimStack
@@ -239,7 +242,7 @@ private:
     return low + (long)(((double)high) * (Random() / (rand_max + 1.0)));
   }
 
-  inline static int bitSearchFirst(atomic_int_t B) {
+  inline static int bitSearchFirst(bitword_t B) {
     for (int b = 0; b < static_cast<int>(MAX_THREADS); ++b) {
       if (B & (BitWordOne << b)) {
         return b;
@@ -253,12 +256,11 @@ private:
     unsigned int accessorId) {
     threadState->localObjectStateIndex = 0;
     threadState->mask     = 0;
-    threadState->mask    |= (BitWordOne << static_cast<size_t>(accessorId));
+    threadState->mask    |= (BitWordOne << static_cast<bitword_t>(accessorId));
     threadState->bit      = 0;
-    threadState->bit     ^= (BitWordOne << static_cast<size_t>(accessorId));
+    threadState->bit     ^= (BitWordOne << static_cast<bitword_t>(accessorId));
     threadState->toggle   = 0;
-    threadState->toggle   = static_cast<atomic_uint_t>(
-      -static_cast<atomic_int_t>(threadState->mask));
+    threadState->toggle   = ~threadState->mask + 1; // 2s complement negation
     threadState->backoff  = 1;
     // Initialize thread-specific random seed:
     randomNextTss.Get() = 1;
@@ -269,21 +271,30 @@ private:
     OperationArg arg,
     unsigned int accessorId) {
     unsigned int numPushOperations;
+    unsigned int numPopOperations;
     bitword_t diffs;
     bitword_t toggles; 
     bitword_t pendingPopOperations;
     ElementPointer_t stackStateIndexNew;
     ElementPointer_t stackStateIndexCurr;
-    // Stores pool indices of pushed elements for 
-    // rollback. At most MAX_THREADS push operations 
-    // have to be reversed.
+    // Stores pool indices of pushed elements for rollback. 
+    // At most MAX_THREADS push operations have to be rolled 
+    // back.
     ElementPointer_t pushElementIndices[MAX_THREADS];
+    // Stores pool indices of removed elements for deallocation. 
+    // At most MAX_THREADS removed elements have to be stored.
+    ElementPointer_t popElementIndices[MAX_THREADS];
+    // This thread's local stack object state 
     ObjectStateUnpadded * localStackState;
+    // The current global stack object state
     ObjectStateUnpadded * globalStackState;
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
     // Prepare thread state:
     threadState->bit    ^= (BitWordOne << static_cast<size_t>(accessorId));
-    threadState->toggle  = static_cast<atomic_uint_t>(
-      -static_cast<atomic_int_t>(threadState->toggle));
+    threadState->toggle  = ~threadState->toggle + 1; // 2s complement negation
     localStackState = (ObjectStateUnpadded *)(
       &stackStates[threadState->localObjectStateIndex]);
     // announce the operation
@@ -325,55 +336,77 @@ private:
       // Intersection of applied and toggled operations: 
       diffs = localStackState->applied ^ toggles;
       numPushOperations    = 0;
+      numPopOperations     = 0;
       pendingPopOperations = 0;
       // Apply all operations that have been announced before this point
       while (diffs != BitWordZero) {
-        uint32_t threadId = bitSearchFirst(diffs);
+        int threadId = bitSearchFirst(diffs);
         diffs ^= BitWordOne << threadId;
         T announced_arg = operationArgs[threadId];
         if (announced_arg == UndefinedValue) {
           // == POP =======
           // Collect pending pop operatins in bit vector:
-          pendingPopOperations |= (BitWordOne << threadId);
+          pendingPopOperations |= (BitWordOne << threadId);          
         }
         else {
           // == PUSH ======
           // Perform push operation and store pool index of 
           // pushed element for rollback:
-          PushOperation(localStackState, threadState, announced_arg, threadId);
+          pushElementIndices[numPushOperations] =
+            PushOperation(localStackState, threadState, announced_arg, threadId);
           numPushOperations++;
         }
-      }     
+      }
       // Apply pending pop operations:
       while (pendingPopOperations != BitWordZero) {
-        uint32_t threadId = bitSearchFirst(pendingPopOperations);
+        int threadId = bitSearchFirst(pendingPopOperations);
         pendingPopOperations ^= (BitWordOne << threadId);
-        PopOperation(localStackState, threadState, threadId);
+        // Perform pop operation on local stack state and
+        // store indices of removed elements. These will be 
+        // freed if the operation succeeded:
+        popElementIndices[numPopOperations] =
+          PopOperation(localStackState, threadState, threadId);
+        numPopOperations++;
       }
       // Update applied operations of local stack state:
       localStackState->applied = toggles;
       // Store index in pool where localStackState will be stored in 
       // new stack pointer's index field:
       stackStateIndexNew = threadState->localObjectStateIndex;
+      if (stackStateIndexNew < 0) {
+        EMBB_THROW(embb::base::ErrorException,
+          "Invalid state index");
+      }
       // Guard index of current object state:
       hp.GuardPointer(0, stackStateIndexCurr);
       if (stackStateIndexCurr == stackStateIndex.Load() &&
           stackStateIndex.CompareAndSwap(
             stackStateIndexCurr, 
             stackStateIndexNew)) {
-        bool dummy;
+        ElementPointer_t lastLocalObjectStateIndex =
+          threadState->localObjectStateIndex;        
         // Reserve new index from index pool:
+        bool dummy;
         int objectStateIndex = stateIndexPool.Allocate(dummy);
         if (objectStateIndex < 0) {
           EMBB_THROW(embb::base::NoMemoryException,
             "Failed to allocate index for object state");
         }
-        threadState->localObjectStateIndex = 
-          static_cast<ElementPointer_t>(objectStateIndex);
+        // Assign new index of local object state:
+        threadState->localObjectStateIndex = objectStateIndex;
         // Operation succeeded, reduce backoff limit:
         threadState->backoff = (threadState->backoff >> 1) | 1;
+        // Free elements removed in pop operations:
+        for (int rb = 0;
+          static_cast<unsigned int>(rb) < numPopOperations;
+          ++rb) {
+          elementPool.Free(popElementIndices[rb]);
+        }
+        // Retire index of this thread's last local object state:
+        hp.EnqueuePointerForDeletion(lastLocalObjectStateIndex);
         // Release guard on index of replaced object state:
         hp.GuardPointer(0, UndefinedGuard);
+        // Return value from local thread state:
         return localStackState->ret[accessorId];
       }
       else {
@@ -421,11 +454,16 @@ public:
       : static_cast<size_t>(nThreads)),
     // Extend pool size by thread-local range
     elementPool(
-      size + ((nThreads - 1) * threadLocalPoolSize),
+      // Add capacity for elements allocated in 
+      // unsuccessful push operations that will be 
+      // freed after when the operation succeeded:
+      size + (MAX_THREADS * threadLocalPoolSize),
       Element_t()),
     stateIndexPool(
       internal::ReturningTrueIterator(0),
-      internal::ReturningTrueIterator((localPoolSize * numThreads) + 1)),
+      internal::ReturningTrueIterator(
+        (hp.GetRetiredListMaxSize() * numThreads) +
+        (localPoolSize * numThreads) + 1)),
       // Disable "this is used in base member initializer" warning.
 #ifdef _MSC_VER
 #pragma warning(push)
@@ -435,7 +473,7 @@ public:
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-    hp(delete_pointer_callback, UndefinedGuard, 1),    
+    hp(delete_pointer_callback, UndefinedGuard, 2),    
     threadRegistry(0u) {
     if (numThreads > MAX_THREADS) {
       EMBB_THROW(embb::base::ErrorException,
@@ -451,7 +489,7 @@ public:
       EMBB_THROW(embb::base::NoMemoryException,
         "Failed to allocate index for initial object state");
     }
-    initialStatePointer =
+    initialStatePointer = 
       static_cast<ElementPointer_t>(initialStateIndex);
     operationArgs = operationArgAllocator.allocate(
       numThreads);
@@ -479,7 +517,7 @@ public:
   }
 
   /**
-   * Removes an element from the pool and returns the element. 
+   * Removes an element from the stack and returns the element. 
    * 
    * \see stack_concept
    *
@@ -492,11 +530,15 @@ public:
         "TryPop: Invalid thread ID");
     }
     StackThreadState * threadState = &threadStates[tId];
-    uint32_t threadBitMask = (1u << tId);
+    int threadBitMask = (1 << tId);
     if ((threadRegistry & threadBitMask) == 0) {
       // Initialize local state for this thread
       initStackThreadState(threadState, tId);
       threadRegistry |= threadBitMask;
+    }
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
     }
     retValue = ApplyOperation(threadState, UndefinedValue, tId);
     if (retValue == UndefinedValue) {
@@ -506,7 +548,7 @@ public:
   }
   
   /**
-   * Adds an element to the pool. 
+   * Adds an element to the stack. 
    * 
    * \see stack_concept
    *
@@ -519,12 +561,16 @@ public:
         "TryPush: Invalid thread ID");
     }
     StackThreadState * threadState = &threadStates[tId];
-    uint32_t threadBitMask = (BitWordOne << static_cast<uint32_t>(tId));
+    int threadBitMask = (1 << tId);
     if ((threadRegistry & threadBitMask) == 0) {
       // Initialize local state for this thread
       initStackThreadState(threadState, tId);
       threadRegistry |= threadBitMask;
-    }    
+    } 
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
     ApplyOperation(threadState, element, tId);
     return true; 
   }
@@ -554,32 +600,42 @@ public:
 
 private:
 
-  /// Return the value removed from the stack
-  inline T PopOperation(
+  /// Returns the pool index of the removed element
+  inline ElementPointer_t PopOperation(
     ObjectStateUnpadded * stack,
-    StackThreadState * /* threadState */,
+    StackThreadState * threadState,
     uint32_t accessorId) {
-    size_t headCurr = static_cast<size_t>(stack->head);
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
+    // Do not free elements here as this operation 
+    // might have to be rolled back
+    ElementPointer_t headCurr = stack->head;
     if (headCurr != NULL) {      
-      Node_t::Element headNode = elementPool[headCurr];
+      Node_t::Element headNode = 
+        elementPool[static_cast<size_t>(headCurr)];
       stack->ret[accessorId] = headNode.value;
       stack->head = headNode.next;
-      // Retire the dequeued element node:
-      hp.EnqueuePointerForDeletion(headCurr);
+      return headCurr;
     }
     else {
       stack->ret[accessorId] = UndefinedValue;
     }
-    return stack->ret[accessorId];
+    return UndefinedGuard;
   }
 
   /// Returns the pool index of the added element 
   /// to allow rollback of push operations.
   inline ElementPointer_t PushOperation(
     ObjectStateUnpadded * stack,
-    StackThreadState * /* threadState */,
+    StackThreadState * threadState,
     T arg,
     uint32_t /* accessorId */) {
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
     typename embb::containers::internal::WaitFreeSimStackNode<T>::Element n;
     int poolIndex = elementPool.Allocate(n);
     if (poolIndex < 0) {
@@ -589,18 +645,19 @@ private:
     ElementPointer_t elementIndex = static_cast<ElementPointer_t>(poolIndex);
     n.value = arg;
     n.next  = stack->head;
-    elementPool[elementIndex] = n;
+    elementPool[static_cast<size_t>(elementIndex)] = n;
     stack->head = elementIndex;
     return elementIndex;
   }
 
   void DeleteNodeCallback(ElementPointer_t releasedNodeIndex) {
     if (releasedNodeIndex == initialStatePointer) {
-      // In current pool implementations, the first index 
+      // In conventional pool implementations, the first index 
       // returned from allocation is 0, which is the value of
       // UndefinedGuard. Here, we ensure that the pointer (= index)
-      // to the initial stack state cannot be freed:
-      return; 
+      // to the initial stack state cannot be freed regardless of 
+      // its value.
+      return;
     }
     bool flagExp = true;
     stateIndexPool.Free(flagExp, static_cast<int>(releasedNodeIndex));
