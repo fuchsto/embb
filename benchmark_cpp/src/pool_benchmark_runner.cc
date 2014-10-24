@@ -28,6 +28,7 @@
 #include <embb/benchmark/internal/console.h>
 #include <embb/benchmark/pools/pool_benchmark_runner.h>
 #include <embb/benchmark/pools/pool_latency_measurements.h>
+#include <embb/containers/internal/increment_iterator.h>
 
 #include <memory>
 #include <vector>
@@ -36,51 +37,8 @@
 namespace embb {
 namespace benchmark {
 
-class IncrementIterator
-{
-public:
-  typedef IncrementIterator self_type;
-  typedef int      value_type;
-  typedef size_t & reference;
-  typedef size_t * pointer;
-  typedef ::std::forward_iterator_tag iterator_category;
-  typedef int difference_type;
-
-public:
-  inline IncrementIterator(size_t count_value) : 
-    count_value(count_value)
-  { }
-  inline self_type operator++() {
-    self_type i = *this;
-    count_value++;
-    return i;
-  }
-  inline self_type operator++(int){
-    count_value++;
-    return *this;
-  }
-  inline reference operator*() {
-    return count_value;
-  }
-  inline pointer operator->(){
-    return &count_value;
-  }
-  inline bool operator==(const self_type & rhs){
-    return count_value == rhs.count_value;
-  }
-  inline bool operator!=(const self_type & rhs){
-    return count_value != rhs.count_value;
-  }
-  inline difference_type operator-(const self_type & rhs){
-    return static_cast<difference_type>(count_value) - 
-      static_cast<difference_type>(rhs.count_value);
-  }
-
-private:
-  size_t count_value;
-};
-
 using internal::Console;
+using embb::containers::internal::IncrementIterator;
 
 LockFreeTreeValuePoolBenchmarkRunner::
 LockFreeTreeValuePoolBenchmarkRunner(const CallArgs & callArgs)  

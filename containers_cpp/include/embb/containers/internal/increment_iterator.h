@@ -24,8 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef EMBB_DATA_INTERNAL_RETURNING_TRUE_ITERATOR_H_
-#define EMBB_DATA_INTERNAL_RETURNING_TRUE_ITERATOR_H_
+#ifndef EMBB_DATA_INTERNAL_INCREMENT_ITERATOR_H_
+#define EMBB_DATA_INTERNAL_INCREMENT_ITERATOR_H_
 
 #include <iterator>
 
@@ -33,23 +33,22 @@ namespace embb {
 namespace containers {
 namespace internal {
 /**
- * Helper, providing a virtual iterator that just returns true in each
- * iteration step. Used for filling the value pool.
- */
-class ReturningTrueIterator
+  * Helper, providing a virtual iterator that returns an incremented
+  * value in each iteration step. Used for filling value pools.
+  */
+class IncrementIterator
 {
 public:
-  typedef ReturningTrueIterator self_type;
-  typedef bool   value_type;
-  typedef bool & reference;
-  typedef bool * pointer;
+  typedef IncrementIterator self_type;
+  typedef int      value_type;
+  typedef size_t & reference;
+  typedef size_t * pointer;
   typedef ::std::forward_iterator_tag iterator_category;
   typedef int difference_type;
 
 public:
-  inline ReturningTrueIterator(size_t count_value) : 
-    count_value(count_value),
-    ret_value(true)
+  inline IncrementIterator(size_t count_value) :
+    count_value(count_value)
   { }
   inline self_type operator++() {
     self_type i = *this;
@@ -61,10 +60,10 @@ public:
     return *this;
   }
   inline reference operator*() {
-    return ret_value;
+    return count_value;
   }
   inline pointer operator->(){
-    return &ret_value;
+    return &count_value;
   }
   inline bool operator==(const self_type & rhs){
     return count_value == rhs.count_value;
@@ -73,16 +72,16 @@ public:
     return count_value != rhs.count_value;
   }
   inline difference_type operator-(const self_type & rhs){
-    return static_cast<difference_type>(count_value) - 
+    return static_cast<difference_type>(count_value)-
       static_cast<difference_type>(rhs.count_value);
   }
 
 private:
   size_t count_value;
-  bool ret_value;
 };
-} // namespace internal
-} // namespace data
-} // namespace embb
 
-#endif /* EMBB_DATA_INTERNAL_RETURNING_TRUE_ITERATOR_H_ */
+}
+}
+}
+
+#endif /* EMBB_DATA_INTERNAL_INCREMENT_ITERATOR_H_ */
