@@ -185,11 +185,16 @@ private:
 
   typedef union pointer_t {
     struct StructData{
-      atomic_int_t seq   : 8;
-      atomic_int_t index : 24;
+      atomic_uint_t seq   : 8;
+      atomic_uint_t index : 24;
     } struct_data;
-    atomic_int_t raw_data;
+    atomic_uint_t raw_data;
   } pointer_t;
+  // Disable "structure was padded due to __declspec(align())" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4324)
+#endif
   typedef struct StackThreadState {
     PoolStruct thread_pool;
     EMBB_CONTAINERS_CACHE_ALIGN bitword_t mask;
@@ -198,6 +203,9 @@ private:
     unsigned int localObjectStateIndex;
     unsigned int backoff;
   } StackThreadState;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   typedef uint32_t bitfield_t; 
   typedef embb::base::Atomic< bitfield_t > atomic_bitfield_t;
   typedef bool state_t;
@@ -214,7 +222,7 @@ private:
 
   static const int MAX_BACK = 0x0000FFFFu;
   // Shared stack pointer state
-  embb::base::Atomic<atomic_int_t> stackPointer;
+  embb::base::Atomic<atomic_uint_t> stackPointer;
   AtomicBitVectorValue atomicTogglesVector;
   /// Capacity of the queue instance. 
   size_t size;
@@ -271,7 +279,7 @@ private:
     return low + (long)(((double)high) * (Random() / (rand_max + 1.0)));
   }
 
-  inline static int bitSearchFirst(atomic_int_t B) {
+  inline static int bitSearchFirst(bitword_t B) {
     for (int b = 0; b < static_cast<int>(MAX_THREADS); ++b) {
       if (B & (BitWordOne << b)) {
         return b;
@@ -290,34 +298,34 @@ private:
     threadState->bit      = 0;
     threadState->bit     ^= (BitWordOne << static_cast<size_t>(accessorId));
     threadState->toggle   = 0;
-    threadState->toggle   = static_cast<atomic_uint_t>(
-      -static_cast<atomic_int_t>(threadState->mask));
+    threadState->toggle   = ~threadState->mask + 1; // 2s complement negation
     threadState->backoff  = 1;
     // Initialize thread-specific pool range:
     init_pool(&threadState->thread_pool, sizeof(Element_t));
     // Initialize thread-specific random seed:
     randomNextTss.Get() = 1;
   }
- 
+  
   inline RetVal ApplyOperation(
     StackThreadState * threadState,
     OperationArg arg,
-    unsigned int accessorId) 
-  {
+    unsigned int accessorId) {
+    int numPushOperations;
     bitword_t diffs;
     bitword_t toggles; 
     bitword_t pendingPopOperations;
     pointer_t stackPointerNew;
     pointer_t stackPointerCurr;
+    // This thread's local stack object state 
     ObjectStateUnpadded * localStackState;
+    // The current global stack object state
     ObjectStateUnpadded * globalStackState;
-    unsigned int numPushOperations;
-
+    
     threadState->bit    ^= (BitWordOne << accessorId);
-    threadState->toggle  = static_cast<atomic_uint_t>(
-      -static_cast<atomic_int_t>(threadState->toggle));
+    threadState->toggle  = ~threadState->toggle + 1; // 2s complement negation
     localStackState = (ObjectStateUnpadded *)(
-      &stackStates[(accessorId * localPoolSize) + threadState->localObjectStateIndex]);
+      &stackStates[(accessorId * localPoolSize) + 
+      threadState->localObjectStateIndex]);
     // announce the operation
     operationArgs[accessorId] = arg;
     // toggle accessorId's bit in atomicTogglesVector, Fetch&Add acts as a 
@@ -466,7 +474,7 @@ public:
   }
 
   /**
-   * Removes an element from the pool and returns the element. 
+   * Removes an element from the stack and returns the element. 
    * 
    * \see stack_concept
    *
@@ -479,7 +487,7 @@ public:
         "TryPop: Invalid thread ID");
     }
     StackThreadState * threadState = &threadStates[tId];
-    uint32_t threadBitMask = (1u << tId);
+    int threadBitMask = (1 << tId);
     if ((threadRegistry & threadBitMask) == 0) {
       // Initialize local state for this thread
       initStackThreadState(threadState, tId);
@@ -493,7 +501,7 @@ public:
   }
   
   /**
-   * Adds an element to the pool. 
+   * Adds an element to the stack. 
    * 
    * \see stack_concept
    *
@@ -506,7 +514,7 @@ public:
         "TryPush: Invalid thread ID");
     }
     StackThreadState * threadState = &threadStates[tId];
-    uint32_t threadBitMask = (1 << static_cast<uint32_t>(tId));
+    int threadBitMask = (1 << tId);
     if ((threadRegistry & threadBitMask) == 0) {
       // Initialize local state for this thread
       initStackThreadState(threadState, tId);
