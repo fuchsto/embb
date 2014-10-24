@@ -919,10 +919,12 @@ private:
    * \waitfree
    */
   void DeleteNodeCallback(index_t releasedNodeIndex) {
-    if (NodeIsPendingDequeue(releasedNodeIndex)) {
+    if (sentinelNodeIndex == releasedNodeIndex
+      //      || NodeIsPendingDequeue(releasedNodeIndex)
+    ) {
       return;
     }
-    nodePool.Free(releasedNodeIndex);
+    nodePool.Free(static_cast<int>(releasedNodeIndex));
   }
 };
 

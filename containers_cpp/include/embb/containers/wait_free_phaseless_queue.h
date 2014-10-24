@@ -806,10 +806,12 @@ private:
    * \waitfree
    */
   void DeleteNodeCallback(index_t releasedNodeIndex) {
-//  if (NodeIsPendingDequeue(releasedNodeIndex)) {
-//    return;
-//  }
-    nodePool.Free(releasedNodeIndex);
+    if (sentinelNodeIndex == releasedNodeIndex
+//      || NodeIsPendingDequeue(releasedNodeIndex)
+    ) {
+      return;
+    }
+    nodePool.Free(static_cast<int>(releasedNodeIndex));
   }
 };
 
