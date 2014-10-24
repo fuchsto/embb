@@ -46,7 +46,6 @@ IndexedObjectPool(RAI first, RAI last) :
     indexFlags[i] = true;
   }
   indexPool = new IndexPool(indexFlags, indexFlags + size);
-
   // use the allocator to allocate array of size dist
   elements = allocator.allocate(size);
   // fill element pool with elements from the iteration
@@ -67,7 +66,6 @@ IndexedObjectPool(size_t size, const T & defaultInstance) :
     indexFlags[i] = true;
   }
   indexPool = new IndexPool(indexFlags, indexFlags + size);
-
   // use the allocator to allocate array of size dist
   elements = allocator.allocate(size);
   // fill element pool with elements from the iteration

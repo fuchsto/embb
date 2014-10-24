@@ -65,20 +65,31 @@ public:
    * \notthreadsafe
    *
    * \memory dynamically allocates 
-   *         \c n*(sizeof(T) + sizeof(embb::base::Atomic<bool>))
+   *         \c n * (sizeof(T) + sizeof(embb::base::Atomic<bool>))
    *         bytes, where \c n is the number of elements in the pool.
    */
   template<typename RAI>
   IndexedObjectPool(
     RAI first,
-    /**< [IN] first iterator to elements the pool is filled with */
+     /**< [IN] first iterator to elements the pool is filled with */
     RAI last
-    /**< [IN] last iterator to elements the pool is filled with */
+     /**< [IN] last iterator to elements the pool is filled with */
     );
 
+  /**
+   * \see value_pool_concept
+   *
+   * \notthreadsafe
+   *
+   * \memory dynamically allocates 
+   *         \c n * (sizeof(T) + sizeof(embb::base::Atomic<bool>))
+   *         bytes, where \c n is the number of elements in the pool.
+   */
   IndexedObjectPool(
     size_t size,
+     /**< [IN] Number of elements the pool is filled with */
     const T & defaultInstance
+     /**< [IN] Default instance to initialize pool elements with */
     );
 
   /**
