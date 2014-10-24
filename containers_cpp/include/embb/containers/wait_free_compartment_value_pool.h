@@ -60,16 +60,11 @@ template<
 class WaitFreeCompartmentValuePool {
 
 private:
-
   static unsigned int threadId();
 
 private:
-
-  int k; 
-  
-  unsigned int maxThreads; 
-  unsigned int * threadCompartmentIds;
-
+  /// Maximum number of threads accessing this pool instance.
+  unsigned int maxThreads;
   /// Number of elements in all compartments
   size_t cRange; 
   /// Start index of the compartment range
@@ -77,20 +72,20 @@ private:
   /// Number of elements in a single compartment
   size_t cSize;
   int nCompartments; 
-
+  /// Guaranteed pool capacity
   size_t size;
+  /// Actual number of allocated elements in the pool
   size_t allocSize;
+  /// Pool elements memory range
   embb::base::Atomic<T> * pool;
+  /// Element allocator
   Allocator allocator;
-
-  // Prevent default constructor
+  /// Prevent default constructor
   WaitFreeCompartmentValuePool();
-
-  // Prevent copy-construction
-  WaitFreeCompartmentValuePool(const WaitFreeCompartmentValuePool&);
-
-  // Prevent assignment
-  WaitFreeCompartmentValuePool& operator=(const WaitFreeCompartmentValuePool&);
+  /// Prevent copy-construction
+  WaitFreeCompartmentValuePool(const WaitFreeCompartmentValuePool &);
+  /// Prevent assignment
+  WaitFreeCompartmentValuePool& operator=(const WaitFreeCompartmentValuePool &);
   
 private: 
 
@@ -135,7 +130,7 @@ public:
    *
    * \notthreadsafe
    *
-   * \memory dynamically allocates \c n*sizeof(embb::base::Atomic<T>) bytes,
+   * \memory dynamically allocates \c n * sizeof(embb::base::Atomic<T>) bytes,
    *         where \c n is the number of elements of the pool.
    */
   template<typename RAI>
@@ -144,8 +139,23 @@ public:
      /**< [IN] first iterator to elements the pool is filled with */
     RAI last, 
      /**< [IN] last iterator to elements the pool is filled with */
-    int k =  static_cast<int>(K)
-     /**< [IN] setting for thread specific pool range differring from default */
+    size_t k = K
+     /**< [IN] Amount of thread-specific elements per thread if differring from default */
+    );
+  
+  /**
+   * \see value_pool_concept
+   *
+   * \notthreadsafe
+   *
+   * \memory dynamically allocates \c n * sizeof(embb::base::Atomic<T>) bytes,
+   *         where \c n is the number of elements of the pool.
+   */
+  WaitFreeCompartmentValuePool(
+    size_t size, 
+     /**< [IN] Amount of elements guaranteed to be allocatable by any thread */
+    size_t k = K
+     /**< [IN] Amount of thread-specific elements per thread */
     );
 
   /**

@@ -115,18 +115,12 @@ Allocate(T & element) {
 template<typename T, T Undefined, size_t K, class Allocator >
 template<typename RAI>
 WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
-WaitFreeCompartmentValuePool(RAI first, RAI last, int k)
-: k(k), 
+WaitFreeCompartmentValuePool(RAI first, RAI last, size_t k)
+: maxThreads(embb::base::Thread::GetThreadsMaxCount()),
   cRange(0), 
   cSplit(0), 
-  cSize(0), 
-  nCompartments(k) {
+  cSize(k) {
   size = static_cast<size_t>(std::distance(first, last));
-
-  maxThreads = embb::base::Thread::GetThreadsMaxCount();
-
-  // number of elements in a single compartment, round towards 0:
-  cSize = static_cast<size_t>(k);
   // Reserve k * t pool elements for compartments: 
   cRange = maxThreads * cSize;
   if (cRange > size) { 
@@ -134,14 +128,42 @@ WaitFreeCompartmentValuePool(RAI first, RAI last, int k)
       "Pool capacity must be >= maxThreads");
   }
   // Start index of the compartment range. 
+  // Shrink public pool range (cSplit) by size of 
+  // compartments, so every thread can allocate 
+  // n = size - (k * (maxThreads-1))
+  // elements with worst case latency n. 
+  cSplit = size - (cSize * maxThreads);
+  // use the allocator to allocate array of size size
+  pool = allocator.allocate(allocSize);
+  size_t i = 0;
+  for (RAI curIter(first); first != last; ++curIter) {
+    pool[i++] = *curIter;
+  }
+}
+
+template<typename T, T Undefined, size_t K, class Allocator >
+WaitFreeCompartmentValuePool<T, Undefined, K, Allocator>::
+WaitFreeCompartmentValuePool(size_t size, size_t k)
+: maxThreads(embb::base::Thread::GetThreadsMaxCount()),
+  cRange(0),
+  cSplit(0),
+  cSize(k),
+  allocSize() {
+  size = static_cast<size_t>(std::distance(first, last));
+  // Reserve k * t pool elements for compartments: 
+  cRange = maxThreads * cSize;
+  if (cRange > size) {
+    EMBB_THROW(embb::base::ErrorException,
+      "Pool capacity must be >= maxThreads");
+  }
+  // Start index of the compartment range. 
   // Shrink public pool range (cSplit) by size of one 
   // compartment, so every thread can allocate n = size 
   // elements with worst case latency n. 
-  cSplit    = size - cSize; 
-  allocSize = cSplit + cRange; 
+  cSplit = size - cSize;
+  allocSize = cSplit + cRange;
   // use the allocator to allocate array of size size
   pool = allocator.allocate(allocSize);
-
   size_t i = 0;
   for (RAI curIter(first); i < allocSize; ++curIter) {
     pool[i++] = *curIter;
