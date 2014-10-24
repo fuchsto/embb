@@ -39,18 +39,15 @@ namespace containers {
 template<
   typename T,
   class IndexPool      = LockFreeTreeValuePool<bool, false>,  
-  class Allocator      = embb::base::Allocator<T>, 
-  class IndexAllocator = embb::base::Allocator<bool>
+  class Allocator      = embb::base::Allocator<T>
 >
 class IndexedObjectPool {
 
 private: 
-  const size_t   size; 
-  T *            elements; 
-  IndexAllocator indexAllocator; 
-  Allocator      allocator; 
-  IndexPool *    indexPool; 
-  bool * const   indexFlags;
+  const size_t   size;
+  T *            elements;
+  Allocator      allocator;
+  IndexPool *    indexPool;
   IndexedObjectPool();  
   // Prevent copy-construction
   IndexedObjectPool(const IndexedObjectPool&);

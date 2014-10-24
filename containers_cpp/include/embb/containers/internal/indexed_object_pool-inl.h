@@ -30,22 +30,19 @@
 namespace embb {
 namespace containers {
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator>::
+template<typename T, class IndexPool, class Allocator>
+IndexedObjectPool<T, IndexPool, Allocator>::
 IndexedObjectPool()
 { }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
+template<typename T, class IndexPool, class Allocator>
 template<typename RAI>
-IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator>::
+IndexedObjectPool<T, IndexPool, Allocator>::
 IndexedObjectPool(RAI first, RAI last) : 
-  size(static_cast<size_t>(std::distance(first, last))),
-  indexFlags(indexAllocator.allocate(size)) {
-  for (size_t i = 0; i < size; ++i) {
-    // Initialize all indices as available: 
-    indexFlags[i] = true;
-  }
-  indexPool = new IndexPool(indexFlags, indexFlags + size);
+  size(static_cast<size_t>(std::distance(first, last))) {
+  indexPool = new IndexPool(
+    internal::ReturningTrueIterator(0),
+    internal::ReturningTrueIterator(size));
   // use the allocator to allocate array of size dist
   elements = allocator.allocate(size);
   // fill element pool with elements from the iteration
@@ -56,16 +53,13 @@ IndexedObjectPool(RAI first, RAI last) :
   }
 }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator>::
+template<typename T, class IndexPool, class Allocator>
+IndexedObjectPool<T, IndexPool, Allocator >::
 IndexedObjectPool(size_t size, const T & defaultInstance) :
-  size(size),
-  indexFlags(indexAllocator.allocate(size)) {
-  for (size_t i = 0; i < size; ++i) {
-    // Initialize all indices as available: 
-    indexFlags[i] = true;
-  }
-  indexPool = new IndexPool(indexFlags, indexFlags + size);
+  size(size) {
+  indexPool = new IndexPool(
+    internal::ReturningTrueIterator(0),
+    internal::ReturningTrueIterator(size));
   // use the allocator to allocate array of size dist
   elements = allocator.allocate(size);
   // fill element pool with elements from the iteration
@@ -76,15 +70,15 @@ IndexedObjectPool(size_t size, const T & defaultInstance) :
   }
 }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator>::
+template<typename T, class IndexPool, class Allocator>
+IndexedObjectPool<T, IndexPool, Allocator >::
 ~IndexedObjectPool()
 {
   allocator.deallocate(elements, (size_t)size);
 }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-int IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator >::
+template<typename T, class IndexPool, class Allocator>
+int IndexedObjectPool<T, IndexPool, Allocator >::
 Allocate(T & element) {
   // Reserve a pool index:
   bool reservedFlag; 
@@ -98,8 +92,8 @@ Allocate(T & element) {
   return index; 
 }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-void IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator >::
+template<typename T, class IndexPool, class Allocator>
+void IndexedObjectPool<T, IndexPool, Allocator >::
 Free(int elementIndex) {
   // Call the referenced element's destructor:
   elements[elementIndex].~T();
@@ -107,8 +101,8 @@ Free(int elementIndex) {
   indexPool->Free(true, elementIndex);
 }
 
-template<typename T, class IndexPool, class Allocator, class IndexAllocator>
-T & IndexedObjectPool<T, IndexPool, Allocator, IndexAllocator >::
+template<typename T, class IndexPool, class Allocator>
+T & IndexedObjectPool<T, IndexPool, Allocator >::
 operator[](size_t elementIndex) {
   return elements[elementIndex];
 }
