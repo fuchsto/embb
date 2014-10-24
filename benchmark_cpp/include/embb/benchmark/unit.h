@@ -47,7 +47,7 @@ public:
     WAIT_FREE_SIM_STACK        = 9,
     LOCK_FREE_STACK            = 10,
     WAIT_FREE_SIM_STACK_TAGGED = 11,
-    HARRIS_LIST_SET            = 12
+    WAIT_FREE_SIM_STACK_TP     = 12
   } UnitId;
 
   inline static UnitId FromUnitName(const ::std::string & name) {
@@ -75,13 +75,13 @@ public:
     if (name == "compartmentpool") {
       return Unit::WAITFREE_COMPARTMENT_POOL;
     }
-    if (name == "harrislistset") {
-      return Unit::HARRIS_LIST_SET;
-    }
     if (name == "simstack") {
       return Unit::WAIT_FREE_SIM_STACK;
     }
     if (name == "simstack-t") {
+      return Unit::WAIT_FREE_SIM_STACK_TAGGED;
+    }
+    if (name == "simstack-tp") {
       return Unit::WAIT_FREE_SIM_STACK_TAGGED;
     }
     if (name == "lockfreestack") {

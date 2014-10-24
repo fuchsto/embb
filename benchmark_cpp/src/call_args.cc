@@ -56,27 +56,21 @@ void CallArgs::ParseArgs(int argc, char* argv[]) {
     Usage();
     return; 
   }
-
   ::std::string type = argv[1];
-
   unit_id = Unit::FromUnitName(type);
-
   if (unit_id == Unit::UNDEFINED) {
     throw InvalidParameterException("Unknown test unit (data structure)");
   }
-
   if (unit_id == Unit::SELF_TEST && argc == 2) {
     // Self-test requested, no more mandatory parameters
     return;
   }
-
   // Expecting benchmarked type as first arguments and 
   // at least 2 benchmark parameters each consisting of 
   // 1 flag and 1 parameter value: 
   if (unit_id != Unit::SELF_TEST && argc < (1 + 1 + (2 * 2))) {
     throw InvalidParameterException("Invalid number of arguments");
   }
-
   for (int flagIdx = 2; flagIdx < argc; flagIdx += 2) {
     int paramIdx = flagIdx + 1;
     // Check if param provided for flag: 
@@ -217,6 +211,7 @@ void CallArgs::Usage() {
   printLn("   lockfreestack   - lock-free - Treiber's stack");
   printLn("   simstack        - wait-free - based on the P-SIM universal construction");
   printLn("   simstack-t      - wait-free - with tagged pointers instead of hazard pointers");
+  printLn("   simstack-tp     - lock-free - P-SIM stack with tree-based pool");
   printLn("Scenarios: 0 1 2 3 4");
   printLn("  ");
 }
