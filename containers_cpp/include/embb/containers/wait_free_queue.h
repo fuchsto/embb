@@ -234,13 +234,21 @@ private:
       Enqueue   = (raw & ENQUEUE_FLAG_MASK) ? true : false;
       NodeIndex = (raw & NODE_INDEX_MASK) >> 15;
       Phase     = (raw & PHASE_MASK);
-    }    
+    }
   };
+  // Disable "structure was padded due to __declspec(align())" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4324)
+#endif
   /// Index of head node in node pool. 
   EMBB_CONTAINERS_CACHE_ALIGN embb::base::Atomic<index_t> headIdx;
   /// Index of tail node in node pool. 
   EMBB_CONTAINERS_CACHE_ALIGN embb::base::Atomic<index_t> tailIdx;
   /// Capacity of the queue instance. 
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   size_t size;
 
 #if EMBB_CONTAINERS_USE_HP_OLD
