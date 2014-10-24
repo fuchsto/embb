@@ -148,12 +148,12 @@ lowFreqFunction(
 
 void WorkStealingBenchmark::
 highFreqFunction(
-  const void *           /* args */,
-  mtapi_size_t           /* args_size */,
-  void *                 /* result_buffer */,
-  mtapi_size_t           /* result_buffer_size */,
-  const void *           /* node_local_data */,
-  mtapi_size_t           /* node_local_data_size */,
+  const void * /* args */,
+  mtapi_size_t /* args_size */,
+  void *       /* result_buffer */,
+  mtapi_size_t /* result_buffer_size */,
+  const void * /* node_local_data */,
+  mtapi_size_t /* node_local_data_size */,
   mtapi_task_context_t * context)
 {
   mtapi_status_t status;
