@@ -207,8 +207,7 @@ LockFreeTreeValuePool(ForwardIterator first, ForwardIterator last) {
   // Tree holds the counter of not allocated elements
   tree = treeAllocator.allocate(static_cast<size_t>(tree_size));
 
-  int i = 0;
-
+  size_t i = 0;
   // Store the elements from the range
   for (ForwardIterator curIter(first); curIter != last; ++curIter) {
     pool[i++] = *curIter;
