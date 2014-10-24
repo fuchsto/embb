@@ -56,7 +56,7 @@ namespace containers {
 namespace internal {
 
 /**
- * Utility class implementing the queues node data type.
+ * Utility class implementing the stack node data type.
  */
 template<typename T>
 class WaitFreeSimStackNode {
@@ -73,7 +73,7 @@ public:
 } // namespace internal
 
 /**
- * Wait-Free Stack using elimination and exponential back-off
+ * Wait-Free Stack using Elimination and Exponential Back-off
  *
  * \tparam T               Type of elements contained in the stack
  * \tparam UndefinedValue  Element value representing and undefined state, 
@@ -90,7 +90,8 @@ template<
 //  WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
     WaitFreeArrayValuePool< bool, false >
   >,
-  class StateIndexPool  = WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
+//class StateIndexPool = WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
+  class StateIndexPool = WaitFreeArrayValuePool< bool, false >
 >
 class WaitFreeSimStack
 {
@@ -136,7 +137,12 @@ private:
     typename internal::WaitFreeSimStackNode<T>::index_t head;
     T ret[MAX_THREADS];
     int32_t pad[EMBB_CONTAINERS_PAD_CACHE(sizeof(ObjectStateUnpadded))];
-  } ObjectState;  
+  } ObjectState;
+  // Disable "structure was padded due to __declspec(align())" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4324)
+#endif
   typedef struct StackThreadState {
     EMBB_CONTAINERS_CACHE_ALIGN bitword_t mask;
     bitword_t toggle;
@@ -144,6 +150,9 @@ private:
     ElementPointer_t localObjectStateIndex;
     unsigned int backoff;
   } StackThreadState;
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
   typedef uint32_t bitfield_t; 
   typedef embb::base::Atomic< bitfield_t > atomic_bitfield_t;
   typedef bool state_t;
@@ -225,11 +234,10 @@ private:
       // Fail if thread index is not in range of number of accessors: 
       if (tmpIndexValue < numThreads) {
         retIndexValue = tmpIndexValue; 
-        return true;      }
-      // @TODO: Map thread id to accessor id range. 
+        return true; 
+      }
       return false; 
     }
-    retIndexValue = UndefinedValue;
     return false; 
   }
 
@@ -458,6 +466,16 @@ public:
     numThreads(nThreads <= 0
       ? embb::base::Thread::GetThreadsMaxCount()
       : static_cast<size_t>(nThreads)),
+      // Disable "this is used in base member initializer" warning.
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable:4355)
+#endif
+    delete_pointer_callback(*this, &self_t::DeleteNodeCallback),
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
+    hp(delete_pointer_callback, UndefinedGuard, 2),
     // Extend pool size by thread-local range
     elementPool(
       // Add capacity for elements allocated in 
@@ -468,18 +486,8 @@ public:
     stateIndexPool(
       internal::ReturningTrueIterator(0),
       internal::ReturningTrueIterator(
-        (hp.GetRetiredListMaxSize() * numThreads) +
-        (localPoolSize * numThreads) + 1)),
-      // Disable "this is used in base member initializer" warning.
-#ifdef _MSC_VER
-#pragma warning(push)
-#pragma warning(disable:4355)
-#endif
-    delete_pointer_callback(*this, &self_t::DeleteNodeCallback),
-#ifdef _MSC_VER
-#pragma warning(pop)
-#endif
-    hp(delete_pointer_callback, UndefinedGuard, 2),    
+        (localPoolSize * numThreads * hp.GetRetiredListMaxSize()) +
+        (localPoolSize * numThreads) + 1)),   
     threadRegistry(0u) {
     if (numThreads > MAX_THREADS) {
       EMBB_THROW(embb::base::ErrorException,
@@ -501,6 +509,9 @@ public:
       EMBB_THROW(embb::base::NoMemoryException,
         "Failed to allocate index for initial element");
     }
+    // Guard sentinel stack node throughout the 
+    // lifetime of the stack instance:
+    hp.GuardPointer(0, initialStateIndex);
     operationArgs = operationArgAllocator.allocate(
       numThreads);
     stackStates = objectStateAllocator.allocate(
@@ -524,6 +535,7 @@ public:
     objectStateAllocator.deallocate(
       const_cast<ObjectState *>(stackStates),
       localPoolSize * numThreads + 1);
+    hp.GuardPointer(0, UndefinedGuard);
   }
 
   /**
@@ -614,7 +626,7 @@ private:
   inline ElementPointer_t PopOperation(
     ObjectStateUnpadded * stack,
     StackThreadState * threadState,
-    uint32_t accessorId) {
+    int accessorId) {
     if (threadState->localObjectStateIndex < 0) {
       EMBB_THROW(embb::base::ErrorException,
         "Invalid state index");
@@ -643,7 +655,7 @@ private:
     ObjectStateUnpadded * stack,
     StackThreadState * threadState,
     T arg,
-    uint32_t /* accessorId */) {
+    int /* accessorId */) {
     if (threadState->localObjectStateIndex < 0) {
       EMBB_THROW(embb::base::ErrorException,
         "Invalid state index");

@@ -37,6 +37,8 @@
 #include <embb/containers/wait_free_spsc_queue.h>
 #include <embb/containers/object_pool.h>
 #include <embb/containers/lock_free_stack.h>
+#include <embb/containers/wait_free_sim_stack_tagged.h>
+#include <embb/containers/wait_free_sim_stack.h>
 #include <embb/containers/lock_free_mpmc_queue.h>
 
 #define COMMA ,
@@ -55,16 +57,18 @@ PT_MAIN("Data Structures C++") {
 
   PT_RUN(embb::containers::test::QueueTest<
     embb::containers::WaitFreeSPSCQueue<int> >);
-
   PT_RUN(embb::containers::test::QueueTest<
     embb::containers::LockFreeMPMCQueue<int> COMMA true COMMA true >);
 
   PT_RUN(embb::containers::test::StackTest<
     embb::containers::LockFreeStack<int> >);
+  PT_RUN(embb::containers::test::StackTest<
+    embb::containers::WaitFreeSimStackTagged<int> >);
+  PT_RUN(embb::containers::test::StackTest<
+    embb::containers::WaitFreeSimStack<int> >);
 
-  PT_RUN(embb::containers::test::ObjectPoolTest
-    <embb::containers::LockFreeTreeValuePool<bool COMMA false > >);
-
-  PT_RUN(embb::containers::test::ObjectPoolTest
-    <embb::containers::WaitFreeArrayValuePool<bool COMMA false> >);
+  PT_RUN(embb::containers::test::ObjectPoolTest<
+    embb::containers::LockFreeTreeValuePool<bool COMMA false > >);
+  PT_RUN(embb::containers::test::ObjectPoolTest<
+    embb::containers::WaitFreeArrayValuePool<bool COMMA false> >);
 }

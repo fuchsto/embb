@@ -27,7 +27,6 @@
 #ifndef EMBB_CONTAINERS_WAIT_FREE_SIM_STACK_TAGGED_H_
 #define EMBB_CONTAINERS_WAIT_FREE_SIM_STACK_TAGGED_H_
 
-#include <embb/containers/internal/hazard_pointer.h>
 #include <embb/containers/internal/returning_true_iterator.h>
 #include <embb/containers/wait_free_array_value_pool.h>
 
@@ -54,15 +53,13 @@ namespace containers {
 namespace internal {
 
 /**
- * Utility class implementing the queues node data type.
+ * Utility class implementing the stack node data type.
  */
 template<typename T>
 class WaitFreeSimStackTaggedNode {
 private:
   typedef embb::containers::internal::WaitFreeSimStackTaggedNode<T> self_t;
 public: 
-  typedef uint32_t index_t;
-
   typedef struct Element_s {
     EMBB_CONTAINERS_VOLATILE struct WaitFreeSimStackTaggedNode<T>::Element_s * next;
     T value;
@@ -72,7 +69,7 @@ public:
 } // namespace internal
 
 /**
- * Wait-Free Stack using elimination and exponential back-off
+ * Wait-Free Stack using Elimination and Exponential Back-off
  *
  * \tparam T               Type of elements contained in the stack
  * \tparam UndefinedValue  Element value representing and undefined state, 
@@ -81,13 +78,16 @@ public:
 template<
   typename T             = uint32_t,
   T UndefinedValue       = 0xFFFFFFFF,
+  size_t LocalPoolSize   = 64,
   class ElementAllocator = embb::base::Allocator< 
     EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackTaggedNode<T>::Element >
 >
 class WaitFreeSimStackTagged
 {
 private: 
-  typedef embb::containers::WaitFreeSimStackTagged<T, UndefinedValue, ElementAllocator> self_t;
+  typedef embb::containers::WaitFreeSimStackTagged<
+    T, UndefinedValue, LocalPoolSize, ElementAllocator> self_t;
+
 #if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
   static const unsigned int MAX_THREADS = 64;
 #else
@@ -95,6 +95,7 @@ private:
 #endif
 
 private:
+
   typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T Object;
   typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T RetVal;
   typedef EMBB_CONTAINERS_DEPENDANT_TYPEDEF T OperationArg;
@@ -112,7 +113,6 @@ private:
   typedef uint32_t bitword_t;
 #endif
   typedef embb::base::Atomic<bitword_t> AtomicBitVectorValue;
-
   typedef struct ObjectStateUnpadded {
     bitword_t applied;
     typename internal::WaitFreeSimStackTaggedNode<T>::Element * head;
@@ -125,18 +125,6 @@ private:
     int32_t pad[EMBB_CONTAINERS_PAD_CACHE(sizeof(ObjectStateUnpadded))];
   } ObjectState;
   
-#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
-  static const bitword_t BitWordZero = 0ui64;
-  static const bitword_t BitWordOne  = 1ui64;
-#else
-  static const bitword_t BitWordZero = 0ui32;
-  static const bitword_t BitWordOne  = 1ui32;
-#endif
-    
-  /// Allocator for object states
-  embb::base::Allocator<ObjectState> objectStateAllocator;
-  /// Allocator for announced operation arguments (ArgVal)
-  embb::base::Allocator<OperationArg> operationDescAllocator;
   /// Allocator for node elements
   ElementAllocator elementAllocator;
 
@@ -205,34 +193,46 @@ private:
   typedef uint32_t bitfield_t; 
   typedef embb::base::Atomic< bitfield_t > atomic_bitfield_t;
   typedef bool state_t;
-  typedef union int_aligned32_t {
-    int32_t v ;
-    char pad[EMBB_CACHE_LINE_SIZE];
-  } int_aligned32_t;
-  typedef union int_aligned64_t {
-    EMBB_CONTAINERS_CACHE_ALIGN int64_t v;
-    char pad[EMBB_CACHE_LINE_SIZE];
-  } int_aligned64_t;
   
+private:
+
+#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
+  static const bitword_t BitWordZero = 0ui64;
+  static const bitword_t BitWordOne = 1ui64;
+#else
+  static const bitword_t BitWordZero = 0ui32;
+  static const bitword_t BitWordOne = 1ui32;
+#endif
+
 private:
 
   static const int MAX_BACK = 0x0000FFFFu;
   // Shared stack pointer state
-  embb::base::Atomic<atomic_uint_t> stackPointer;
+  embb::base::Atomic<atomic_uint_t> stackStateIndex;
   AtomicBitVectorValue atomicTogglesVector;
   /// Capacity of the queue instance. 
   size_t size;
+  /// Size of thread-local state pools.
   size_t localPoolSize;
+  /// Maximum order for exponential backoff.
   size_t maxBackoff;
+  /// Whether exponential backoff will be used on detected contention.
   bool backoffEnabled;
   /// Maximum number of threads accessing this queue instance. 
   size_t numThreads;
+  /// Allocator for object states
+  embb::base::Allocator<ObjectState> objectStateAllocator;
+  /// Allocator for announced operation arguments (ArgVal)
+  embb::base::Allocator<OperationArg> operationDescAllocator;
   /// Bitset recording which thread already initialized their local state
   uint32_t threadRegistry;
   /// Allocator for the threads' local state (will be replaced 
   /// by thread-specific variable)
   embb::base::Allocator<StackThreadState> stackThreadStateAllocator;
+  /// Array of thread-specific states of the stack object
   StackThreadState * threadStates;
+  /// Thread-specific, incremental random seed
+  embb::base::ThreadSpecificStorage<long> randomNextTss;
 
 private:
   // Disable "structure was padded due to __declspec(align())" warning.
@@ -256,16 +256,13 @@ private:
       // Fail if thread index is not in range of number of accessors: 
       if (tmpIndexValue < numThreads) {
         retIndexValue = tmpIndexValue; 
-        return true;      }
-      // @TODO: Map thread id to accessor id range. 
+        return true;
+      }
       return false; 
     }
-    retIndexValue = UndefinedValue;
     return false; 
   }
   
-  // In Numerical Recipes in C: The Art of Scientific Computing 
-  embb::base::ThreadSpecificStorage<long> randomNextTss;
   inline long Random(void) {
     randomNextTss.Get() = randomNextTss.Get() * 1103515245 + 12345;
     return((unsigned)(randomNextTss.Get() / 65536) % 32768);
@@ -286,8 +283,7 @@ private:
 
   void initStackThreadState(
     StackThreadState * threadState,
-    unsigned int accessorId)
-  {
+    unsigned int accessorId) {
     threadState->localObjectStateIndex = 0;
     threadState->mask     = 0;
     threadState->mask    |= (BitWordOne << static_cast<size_t>(accessorId));
@@ -310,13 +306,16 @@ private:
     bitword_t diffs;
     bitword_t toggles; 
     bitword_t pendingPopOperations;
-    pointer_t stackPointerNew;
-    pointer_t stackPointerCurr;
+    pointer_t stackStateIndexNew;
+    pointer_t stackStateIndexCurr;
     // This thread's local stack object state 
     ObjectStateUnpadded * localStackState;
     // The current global stack object state
     ObjectStateUnpadded * globalStackState;
-    
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
     threadState->bit    ^= (BitWordOne << accessorId);
     threadState->toggle  = ~threadState->toggle + 1; // 2s complement negation
     localStackState = (ObjectStateUnpadded *)(
@@ -339,10 +338,11 @@ private:
         }
       }
       // read reference to struct ObjectState
-      stackPointerCurr.raw_data = stackPointer.Load();
-      // read reference of struct ObjectState in a local variable localStackState
+      stackStateIndexCurr.raw_data = stackStateIndex.Load();
+      // read reference of struct ObjectState in a local variable 
+      // localStackState
       globalStackState = (ObjectStateUnpadded *)&(
-        stackStates[stackPointerCurr.struct_data.index]);
+        stackStates[stackStateIndexCurr.struct_data.index]);
       // Get all applied operations at this point: 
       diffs = globalStackState->applied;
       // Determine the set of active processes
@@ -354,7 +354,7 @@ private:
       // Copy global state to local state:
       *localStackState = *globalStackState;
       toggles = atomicTogglesVector.Load(); 
-      if (stackPointerCurr.raw_data != stackPointer.Load()) {
+      if (stackStateIndexCurr.raw_data != stackStateIndex.Load()) {
         continue;
       }
       // Intersection of applied and toggled operations: 
@@ -373,7 +373,7 @@ private:
         }
         else {
           // == PUSH ======
-          PushOperation(threadState, localStackState, announced_arg);
+          PushOperation(localStackState, threadState, announced_arg, threadId);
           numPushOperations++;
         }
       }      
@@ -381,20 +381,20 @@ private:
       while (pendingPopOperations != BitWordZero) {
         int threadId = bitSearchFirst(pendingPopOperations);
         pendingPopOperations ^= (BitWordOne << threadId);
-        PopOperation(localStackState, threadId);
-      }      
+        PopOperation(localStackState, threadState, threadId);
+      }
       // Update applied operations of local stack state:
       localStackState->applied = toggles;
       // Increase timestamp
-      stackPointerNew.struct_data.seq = stackPointerCurr.struct_data.seq + 1;
+      stackStateIndexNew.struct_data.seq = stackStateIndexCurr.struct_data.seq + 1;
       // Store index in pool where localStackState will be stored in 
       // new stack pointer's index field:
-      stackPointerNew.struct_data.index = 
+      stackStateIndexNew.struct_data.index = 
         (localPoolSize * accessorId) + threadState->localObjectStateIndex;
-      if (stackPointerCurr.raw_data == stackPointer.Load() &&
-        stackPointer.CompareAndSwap(
-            stackPointerCurr.raw_data, 
-            stackPointerNew.raw_data)) {
+      if (stackStateIndexCurr.raw_data == stackStateIndex.Load() &&
+        stackStateIndex.CompareAndSwap(
+            stackStateIndexCurr.raw_data, 
+            stackStateIndexNew.raw_data)) {
         threadState->localObjectStateIndex = 
           (threadState->localObjectStateIndex + 1) % localPoolSize;
         // Operation succeeded, reduce backoff limit:
@@ -412,7 +412,7 @@ private:
     // Return the value from the state stored at the current object 
     // state index:
     pointer_t sp;
-    sp.raw_data = stackPointer.Load();
+    sp.raw_data = stackStateIndex.Load();
     return stackStates[sp.struct_data.index].ret[accessorId];
   }
 
@@ -425,19 +425,26 @@ public:
    *
    * \memory dynamically allocates \c TOOD.
    */
-  WaitFreeSimStackTagged(size_t size, int nThreads = 0, bool enableBackoff = false) :
-    size(size),
-    localPoolSize(64),
+  WaitFreeSimStackTagged(
+    size_t size, 
+    int nThreads = 0, 
+    bool enableBackoff = false,
+    unsigned int threadLocalPoolSize = LocalPoolSize)
+  : size(size),
+    localPoolSize(threadLocalPoolSize),
     maxBackoff(MAX_BACK),
     backoffEnabled(enableBackoff),
-    numThreads(static_cast<size_t>(nThreads)),
+    numThreads(nThreads <= 0
+      ? embb::base::Thread::GetThreadsMaxCount()
+      : static_cast<size_t>(nThreads)),
     threadRegistry(0u) {
-    if (numThreads == 0) {
-      numThreads = embb::base::Thread::GetThreadsMaxCount();
-    }
     if (numThreads > MAX_THREADS) {
       EMBB_THROW(embb::base::ErrorException,
         "Maximum number of accessor thread exceeded");
+    }
+    if (localPoolSize < numThreads) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Local pool size must be equal to or greater than number of threads");
     }
     maxBackoff = numThreads * 100;    
     operationArgs = operationDescAllocator.allocate(
@@ -448,13 +455,12 @@ public:
       numThreads);
     // Initialize global stack pointer state: 
     pointer_t sp;
-    sp.raw_data = stackPointer.Load();
     sp.struct_data.index = localPoolSize * numThreads;
     sp.struct_data.seq = 0;
-    stackPointer.Store(sp.raw_data);
-    atomicTogglesVector = 0;
+    stackStateIndex.Store(sp.raw_data);
     stackStates[localPoolSize * numThreads].head    = NULL;
     stackStates[localPoolSize * numThreads].applied = 0;
+    atomicTogglesVector = 0;
   }
 
   /**
@@ -533,20 +539,14 @@ public:
 
 private:
 
-  inline void PushOperation(
-    StackThreadState * threadState,
-    ObjectStateUnpadded * stack,
-    T arg) {
-    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * n;
-    n = (Element_t *)(alloc_obj(&threadState->thread_pool));
-    n->value = arg;
-    n->next = const_cast< Element_t * >(stack->head);
-    stack->head = n;
-  }
-
   inline void PopOperation(
     ObjectStateUnpadded * stack,
+    StackThreadState * threadState,
     int accessorId) {
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
     if (stack->head != NULL) {
       stack->ret[accessorId] = stack->head->value;
       stack->head = const_cast<Element_t *>(stack->head->next);
@@ -556,6 +556,21 @@ private:
     }
   }
 
+  inline void PushOperation(
+    ObjectStateUnpadded * stack,
+    StackThreadState * threadState,
+    T arg,
+    int /* accessorId */) {
+    if (threadState->localObjectStateIndex < 0) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Invalid state index");
+    }
+    typename embb::containers::internal::WaitFreeSimStackTaggedNode<T>::Element * n;
+    n = (Element_t *)(alloc_obj(&threadState->thread_pool));
+    n->value = arg;
+    n->next = const_cast< Element_t * >(stack->head);
+    stack->head = n;
+  }
 };
 
 }
