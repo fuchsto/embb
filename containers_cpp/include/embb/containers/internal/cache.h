@@ -3,6 +3,12 @@
 
 #include <embb/containers/internal/flags.h>
 
+#if EMBB_CONTAINERS_DISABLE_VOLATILE
+#  define EMBB_CONTAINERS_VOLATILE
+#else
+#  define EMBB_CONTAINERS_VOLATILE volatile
+#endif
+
 // Allow to disable cache-alignment in containers for 
 // benchmarks and testing purposes
 #if EMBB_CONTAINERS_DISABLE_CACHE_ALIGN

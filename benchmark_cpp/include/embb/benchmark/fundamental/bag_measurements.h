@@ -94,7 +94,7 @@ public:
     size_t threadId,
     embb::base::perf::Timer::timestamp_t start,
     embb::base::perf::Timer::timestamp_t end) {
-    if (threadId >= args.NumThreads()) {
+    if (threadId >= latenciesAdd.size()) {
       throw std::runtime_error("Thread ID out of range"); 
     }
     embb::base::perf::Duration d;
@@ -107,7 +107,7 @@ public:
     size_t threadId,
     embb::base::perf::Timer::timestamp_t start,
     embb::base::perf::Timer::timestamp_t end) {
-    if (threadId >= args.NumThreads()) {
+    if (threadId > latenciesRemoveAny.size()) {
       throw std::runtime_error("Thread ID out of range"); 
     }
     embb::base::perf::Duration d;

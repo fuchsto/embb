@@ -40,10 +40,6 @@
 #include <embb/base/atomic.h>
 #include <embb/containers/internal/cache.h> 
 
-#ifndef EMBB_CONTAINERS_VOLATILE
-#  define EMBB_CONTAINERS_VOLATILE volatile
-#endif
-
 #ifdef EMBB_COMPILER_MSVC
 #  define EMBB_CONTAINERS_DEPENDANT_TYPEDEF typename
 #  define EMBB_CONTAINERS_DEPENDANT_TYPENAME typename
@@ -457,7 +453,7 @@ public:
     sp.struct_data.seq = 0;
     stackPointer.Store(sp.raw_data);
     atomicTogglesVector = 0;
-    stackStates[localPoolSize * numThreads].head    = 0;
+    stackStates[localPoolSize * numThreads].head    = NULL;
     stackStates[localPoolSize * numThreads].applied = 0;
   }
 

@@ -409,7 +409,10 @@ Task()
       break;
     }
     for (size_t e = 0; e < this->NumProduceElements(); ++e) {
-      element_t element = static_cast<unsigned int>((e + 1)) + (100 * (1+this->Id()));
+      element_t element = 
+        static_cast<unsigned int>((e + 1)) + 
+        (10000 * (1+i)) +
+        (10000000 * (1+this->Id()));
       // Measure time for operation 'Add': 
       Timer addTime; 
       bool res = this->Unit().TryPush(element);

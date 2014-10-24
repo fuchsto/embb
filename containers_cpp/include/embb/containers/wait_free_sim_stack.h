@@ -42,9 +42,6 @@
 #include <embb/base/atomic.h>
 #include <embb/containers/internal/cache.h>
 
-#ifndef EMBB_CONTAINERS_VOLATILE
-#  define EMBB_CONTAINERS_VOLATILE volatile
-#endif
 #ifdef EMBB_COMPILER_MSVC
 #  define EMBB_CONTAINERS_DEPENDANT_TYPEDEF typename
 #  define EMBB_CONTAINERS_DEPENDANT_TYPENAME typename
@@ -88,7 +85,7 @@ template<
   typename T            = uint32_t,
   T UndefinedValue      = 0xFFFFFFFF,
   size_t LocalPoolSize  = 64,
-  class ElementPool     = IndexedObjectPool< 
+  class ElementPool     = IndexedObjectPool<
     EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackNode<T>::Element,
 //  WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
     WaitFreeArrayValuePool< bool, false >
@@ -189,7 +186,8 @@ private:
   embb::base::Allocator<OperationArg> operationArgAllocator;
   /// Pool for node elements
   ElementPool elementPool;
-  /// Pool for indices in object state array
+  /// Pool for indices in object state array. Stack state indices are 
+  /// guarded by hazard pointers.
   StateIndexPool stateIndexPool;
   /// Bitset recording which thread already initialized their local state
   uint32_t threadRegistry;
@@ -199,7 +197,9 @@ private:
   /// Array of thread-specific states of the stack object
   StackThreadState * threadStates;
   /// Index of initial object state in stack states array
-  ElementPointer_t initialStatePointer;
+  ElementPointer_t initialStateIndex;
+  /// Index of initial element in stack
+  ElementPointer_t initialElementIndex;
   /// Thread-specific, incremental random seed
   embb::base::ThreadSpecificStorage<long> randomNextTss;
 
@@ -398,9 +398,12 @@ private:
         threadState->backoff = (threadState->backoff >> 1) | 1;
         // Free elements removed in pop operations:
         for (int rb = 0;
-          static_cast<unsigned int>(rb) < numPopOperations;
-          ++rb) {
-          elementPool.Free(popElementIndices[rb]);
+             static_cast<unsigned int>(rb) < numPopOperations;
+             ++rb) {
+          // Paranoia check that initial element is not freed:
+          if (popElementIndices[rb] != initialElementIndex) {
+            elementPool.Free(popElementIndices[rb]);
+          }
         }
         // Retire index of this thread's last local object state:
         hp.EnqueuePointerForDeletion(lastLocalObjectStateIndex);
@@ -420,7 +423,10 @@ private:
         for (int rb = 0;
              static_cast<unsigned int>(rb) < numPushOperations;
              ++rb) {
-          elementPool.Free(pushElementIndices[rb]);
+          // Paranoia check that initial element is not freed:
+          if (popElementIndices[rb] != initialElementIndex) {
+            elementPool.Free(pushElementIndices[rb]);
+          }
         }
       }
     }
@@ -484,13 +490,17 @@ public:
         "Local pool size must be equal to or greater than number of threads");
     }
     bool flag;
-    int initialStateIndex = stateIndexPool.Allocate(flag);
+    initialStateIndex = stateIndexPool.Allocate(flag);
     if (initialStateIndex < 0) {
       EMBB_THROW(embb::base::NoMemoryException,
         "Failed to allocate index for initial object state");
     }
-    initialStatePointer = 
-      static_cast<ElementPointer_t>(initialStateIndex);
+    Node_t::Element initialElement;
+    initialElementIndex = elementPool.Allocate(initialElement);
+    if (initialElementIndex < 0) {
+      EMBB_THROW(embb::base::NoMemoryException,
+        "Failed to allocate index for initial element");
+    }
     operationArgs = operationArgAllocator.allocate(
       numThreads);
     stackStates = objectStateAllocator.allocate(
@@ -498,8 +508,8 @@ public:
     threadStates = stackThreadStateAllocator.allocate(
       numThreads);
     // Initialize global stack pointer state:
-    stackStateIndex.Store(initialStateIndex);    
-    stackStates[initialStateIndex].head    = 0;
+    stackStateIndex.Store(initialStateIndex);
+    stackStates[initialStateIndex].head    = initialElementIndex;
     stackStates[initialStateIndex].applied = 0;
     atomicTogglesVector = 0;
   }
@@ -612,7 +622,7 @@ private:
     // Do not free elements here as this operation 
     // might have to be rolled back
     ElementPointer_t headCurr = stack->head;
-    if (headCurr != NULL) {      
+    if (headCurr != initialElementIndex) {
       Node_t::Element headNode = 
         elementPool[static_cast<size_t>(headCurr)];
       stack->ret[accessorId] = headNode.value;
@@ -620,6 +630,8 @@ private:
       return headCurr;
     }
     else {
+      // Head is initialElementIndex, so stack is 
+      // empty:
       stack->ret[accessorId] = UndefinedValue;
     }
     return UndefinedGuard;
@@ -651,7 +663,7 @@ private:
   }
 
   void DeleteNodeCallback(ElementPointer_t releasedNodeIndex) {
-    if (releasedNodeIndex == initialStatePointer) {
+    if (releasedNodeIndex == initialStateIndex) {
       // In conventional pool implementations, the first index 
       // returned from allocation is 0, which is the value of
       // UndefinedGuard. Here, we ensure that the pointer (= index)
