@@ -196,13 +196,8 @@ private:
   
 private:
 
-#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
-  static const bitword_t BitWordZero = 0ui64;
-  static const bitword_t BitWordOne = 1ui64;
-#else
-  static const bitword_t BitWordZero = 0ui32;
-  static const bitword_t BitWordOne = 1ui32;
-#endif
+  static const bitword_t BitWordZero = 0U;
+  static const bitword_t BitWordOne  = 1U;
 
 private:
 

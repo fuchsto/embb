@@ -164,9 +164,8 @@ WaitFreeCompartmentValuePool(size_t numElements, size_t k)
   allocSize = cSplit + cRange;
   // use the allocator to allocate array of size size
   pool = allocator.allocate(allocSize);
-  int i = 0;
-  for (RAI curIter(first); i < allocSize; ++curIter) {
-    pool[i++] = *curIter;
+  for (int i = 0; i < allocSize; ++i) {
+    pool[i++] = i;
   }
   nAllocated = 0;
 }

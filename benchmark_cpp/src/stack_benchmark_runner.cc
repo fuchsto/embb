@@ -127,5 +127,27 @@ WaitFreeSimStackTpBenchmarkRunner::Run() {
     new StackBenchmarkReport(benchmark->Measurements()));
 }
 
+WaitFreeSimStackApBenchmarkRunner::
+WaitFreeSimStackApBenchmarkRunner(const CallArgs & callArgs)
+: args(callArgs),
+stack(args.NumElements()) {
+  benchmark = new benchmark_t(&stack, args);
+}
+
+::std::auto_ptr< embb::benchmark::Report >
+WaitFreeSimStackApBenchmarkRunner::Run() {
+  Console::WriteHeader("WaitFreeSimStack (array pool)");
+
+  Timer runtime;
+  benchmark->Run();
+  double seconds = runtime.Elapsed() / 1000000.0;
+
+  Console::WriteValue<double>("Execution time", seconds, 3, "s");
+  Console::WriteStep("Creating report");
+
+  return ::std::auto_ptr< embb::benchmark::Report >(
+    new StackBenchmarkReport(benchmark->Measurements()));
+}
+
 } // namespace benchmark
 } // namespace embb

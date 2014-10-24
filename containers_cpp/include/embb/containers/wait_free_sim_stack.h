@@ -87,11 +87,9 @@ template<
   size_t LocalPoolSize  = 64,
   class ElementPool     = IndexedObjectPool<
     EMBB_CONTAINERS_DEPENDANT_TYPENAME internal::WaitFreeSimStackNode<T>::Element,
-//  WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
-    WaitFreeArrayValuePool< bool, false >
+    WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
   >,
-//class StateIndexPool = WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
-  class StateIndexPool = WaitFreeArrayValuePool< bool, false >
+  class StateIndexPool = WaitFreeCompartmentValuePool< bool, false, LocalPoolSize >
 >
 class WaitFreeSimStack
 {
@@ -159,13 +157,8 @@ private:
 
 private:
 
-#if defined(EMBB_64_BIT_ATOMIC_AVAILABLE)
-  static const bitword_t BitWordZero = 0ui64;
-  static const bitword_t BitWordOne  = 1ui64;
-#else
-  static const bitword_t BitWordZero = 0ui32;
-  static const bitword_t BitWordOne  = 1ui32;
-#endif
+  static const bitword_t BitWordZero = 0U;
+  static const bitword_t BitWordOne  = 1U;
 
 private:
 
@@ -503,7 +496,7 @@ public:
       EMBB_THROW(embb::base::NoMemoryException,
         "Failed to allocate index for initial object state");
     }
-    Node_t::Element initialElement;
+    EMBB_CONTAINERS_DEPENDANT_TYPENAME Node_t::Element initialElement;
     initialElementIndex = elementPool.Allocate(initialElement);
     if (initialElementIndex < 0) {
       EMBB_THROW(embb::base::NoMemoryException,
@@ -635,7 +628,7 @@ private:
     // might have to be rolled back
     ElementPointer_t headCurr = stack->head;
     if (headCurr != initialElementIndex) {
-      Node_t::Element headNode = 
+      EMBB_CONTAINERS_DEPENDANT_TYPENAME Node_t::Element headNode = 
         elementPool[static_cast<size_t>(headCurr)];
       stack->ret[accessorId] = headNode.value;
       stack->head = headNode.next;

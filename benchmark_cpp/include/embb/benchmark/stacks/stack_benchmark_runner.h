@@ -140,6 +140,37 @@ public:
   virtual ::std::auto_ptr< embb::benchmark::Report > Run();
 };
 
+/**
+ * Type adapter class for StackBenchmark< WaitFreeSimStack<...> >
+ */
+class WaitFreeSimStackApBenchmarkRunner : public BenchmarkRunner {
+private:
+  typedef StackLatencyMeasurements::element_t element_t;
+
+public:
+  typedef embb::containers::WaitFreeSimStack<
+    element_t,
+    0xFFFFFFFF,
+    64,
+    embb::containers::IndexedObjectPool<
+      EMBB_CONTAINERS_DEPENDANT_TYPENAME 
+      embb::containers::internal::WaitFreeSimStackNode<element_t>::Element,
+      embb::containers::WaitFreeArrayValuePool< bool, false >
+  >,
+  embb::containers::WaitFreeArrayValuePool< bool, false > > concrete_stack_t;
+  typedef StackBenchmark< concrete_stack_t > benchmark_t;
+
+private:
+  CallArgs         args;
+  concrete_stack_t stack;
+  benchmark_t *    benchmark;
+
+public:
+  WaitFreeSimStackApBenchmarkRunner(const CallArgs & args);
+  virtual ~WaitFreeSimStackApBenchmarkRunner() { }
+  virtual ::std::auto_ptr< embb::benchmark::Report > Run();
+};
+
 } // namespace benchmark
 } // namespace embb
 

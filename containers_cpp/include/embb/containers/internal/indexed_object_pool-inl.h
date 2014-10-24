@@ -27,6 +27,8 @@
 #ifndef EMBB_CONTAINERS_INTERNAL_INDEXED_OBJECT_POOL_INL_H_
 #define EMBB_CONTAINERS_INTERNAL_INDEXED_OBJECT_POOL_INL_H_
 
+#include <embb/containers/internal/returning_true_iterator.h>
+
 namespace embb {
 namespace containers {
 

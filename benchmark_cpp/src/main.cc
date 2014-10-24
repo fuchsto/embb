@@ -135,6 +135,10 @@ int main(int argc, char* argv[])
       WaitFreeSimStackTpBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
+    else if (params.UnitId() == Unit::WAIT_FREE_SIM_STACK_AP) {
+      WaitFreeSimStackApBenchmarkRunner benchmark(params);
+      runBenchmark(benchmark, params);
+    }
     else if (params.UnitId() == Unit::LOCK_FREE_STACK) {
       LockFreeStackBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
