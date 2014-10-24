@@ -34,19 +34,16 @@
 #include <embb/benchmark/stacks/stack_benchmark_report.h>
 
 #include <embb/containers/lock_free_stack.h>
+#include <embb/containers/wait_free_sim_stack.h>
 #include <embb/containers/wait_free_sim_stack_tagged.h>
 
-#include <memory> 
-#include <algorithm>
-#include <vector>
+#include <memory>
 
 namespace embb {
 namespace benchmark {
 
-using ::std::min;
-
 /**
- * @brief Type adapter class for StackBenchmark< LockFreeStack<...> >
+ * Type adapter class for StackBenchmark< LockFreeStack<...> >
  */
 class LockFreeStackBenchmarkRunner : public BenchmarkRunner {
 private:
@@ -68,7 +65,7 @@ public:
 };
 
 /**
- * @brief Type adapter class for StackBenchmark< WaitFreeSimStackTagged<...> >
+ * Type adapter class for StackBenchmark< WaitFreeSimStackTagged<...> >
  */
 class WaitFreeSimStackTaggedBenchmarkRunner : public BenchmarkRunner {
 private:
@@ -88,6 +85,29 @@ public:
   virtual ~WaitFreeSimStackTaggedBenchmarkRunner() { }
   virtual ::std::auto_ptr< embb::benchmark::Report > Run();
 };
+
+/**
+ * Type adapter class for StackBenchmark< WaitFreeSimStack<...> >
+ */
+class WaitFreeSimStackBenchmarkRunner : public BenchmarkRunner {
+private:
+  typedef StackLatencyMeasurements::element_t element_t;
+
+public:
+  typedef embb::containers::WaitFreeSimStack< element_t > concrete_stack_t;
+  typedef StackBenchmark< concrete_stack_t > benchmark_t;
+
+private:
+  CallArgs         args;
+  concrete_stack_t stack;
+  benchmark_t *    benchmark;
+
+public:
+  WaitFreeSimStackBenchmarkRunner(const CallArgs & args);
+  virtual ~WaitFreeSimStackBenchmarkRunner() { }
+  virtual ::std::auto_ptr< embb::benchmark::Report > Run();
+};
+
 
 } // namespace benchmark
 } // namespace embb

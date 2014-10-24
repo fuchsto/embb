@@ -49,7 +49,6 @@ LockFreeStackBenchmarkRunner(const CallArgs & callArgs)
 ::std::auto_ptr< embb::benchmark::Report >
 LockFreeStackBenchmarkRunner::Run() {
   Console::WriteHeader("LockFreeStack"); 
-  Console::WriteStep("Running benchmark"); 
 
   Timer runtime;
   benchmark->Run();
@@ -72,7 +71,6 @@ WaitFreeSimStackTaggedBenchmarkRunner(const CallArgs & callArgs)
 ::std::auto_ptr< embb::benchmark::Report >
 WaitFreeSimStackTaggedBenchmarkRunner::Run() {
   Console::WriteHeader("WaitFreeSimStackTagged");
-  Console::WriteStep("Running benchmark");
 
   Timer runtime;
   benchmark->Run();
@@ -84,6 +82,29 @@ WaitFreeSimStackTaggedBenchmarkRunner::Run() {
   return ::std::auto_ptr< embb::benchmark::Report >(
     new StackBenchmarkReport(benchmark->Measurements()));
 }
+
+WaitFreeSimStackBenchmarkRunner::
+WaitFreeSimStackBenchmarkRunner(const CallArgs & callArgs)
+: args(callArgs),
+stack(args.NumElements()) {
+  benchmark = new benchmark_t(&stack, args);
+}
+
+::std::auto_ptr< embb::benchmark::Report >
+WaitFreeSimStackBenchmarkRunner::Run() {
+  Console::WriteHeader("WaitFreeSimStack");
+
+  Timer runtime;
+  benchmark->Run();
+  double seconds = runtime.Elapsed() / 1000000.0;
+
+  Console::WriteValue<double>("Execution time", seconds, 3, "s");
+  Console::WriteStep("Creating report");
+
+  return ::std::auto_ptr< embb::benchmark::Report >(
+    new StackBenchmarkReport(benchmark->Measurements()));
+}
+
 
 } // namespace benchmark
 } // namespace embb

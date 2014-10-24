@@ -78,6 +78,9 @@ public:
     if (name == "harrislistset") {
       return Unit::HARRIS_LIST_SET;
     }
+    if (name == "simstack") {
+      return Unit::WAIT_FREE_SIM_STACK;
+    }
     if (name == "simstack-t") {
       return Unit::WAIT_FREE_SIM_STACK_TAGGED;
     }

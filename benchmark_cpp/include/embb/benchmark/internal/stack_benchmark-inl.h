@@ -82,7 +82,8 @@ Run() {
         Console::WriteStep("Scenario: Capacity Buffer");
         RunScenario_4_CapacityBuffer(); 
         break;
-      case Scenario::NUM_SCENARIOS: break; 
+      case Scenario::NUM_SCENARIOS: break;
+      case Scenario::UNDEFINED: break;
       default: break; 
     }
   }
@@ -289,7 +290,7 @@ RunScenario_4_CapacityBuffer()
     }
   }
   for (unsigned int producer_id = 0; 
-       producer_id < callArgs.NumProducers(); 
+       producer_id < static_cast<unsigned int>(callArgs.NumProducers());
        ++producer_id) {
     producers.push_back(
       new ProducerThread(
@@ -301,16 +302,16 @@ RunScenario_4_CapacityBuffer()
         callArgs.NumAllocsPerIt()));
   }
   for (unsigned int consumer_id = 0; 
-       consumer_id < callArgs.NumConsumers();
+       consumer_id < static_cast<unsigned int>(callArgs.NumConsumers());
        ++consumer_id) {
     consumers.push_back(
       new ConsumerThread(
         s,
         &measurements,
         consumer_id,
-        consumer_id + callArgs.NumProducers(),
+        consumer_id + static_cast<unsigned int>(callArgs.NumProducers()),
         callArgs, 
-        0));
+        0U));
   }
   Console::WriteStep("Starting threads");
   // Start consumer threads first to reduce startup latency: 
@@ -364,7 +365,8 @@ Task()
           return; 
         }
         Console::WriteStatus("!!! TryPush failed");
-        Console::WriteValue("!!! It, Elem", i, n_e);
+        Console::WriteValue("!!! Iteration", i);
+        Console::WriteValue("!!! Element", n_e);
         return; 
       }
       else {
@@ -386,7 +388,8 @@ Task()
           return; 
         }
         Console::WriteStatus("!!! Pop failed");
-        Console::WriteValue("!!! It, Elem", i, n_d);
+        Console::WriteValue("!!! Iteration", i);
+        Console::WriteValue("!!! Element", n_d);
         return; 
       }
       else {

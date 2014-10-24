@@ -83,10 +83,8 @@ int main(int argc, char* argv[])
     ::std::cerr << "Failed: " << e.what() << ::std::endl;
     return confirmExit();
   }
-
   Timer::Calibrate(params.TimerType(), 
-                   params.TimerParam());
-  
+                   params.TimerParam());  
   try {
     embb::base::Thread::SetThreadsMaxCount(
       static_cast<unsigned int>(1 + params.NumThreads()));
@@ -96,8 +94,7 @@ int main(int argc, char* argv[])
     if (params.UnitId() == Unit::SELF_TEST) {
       embb::benchmark::internal::SelfTest::Run(); 
       return confirmExit();
-    }
-    
+    }    
     else if (params.UnitId() == Unit::MICHAEL_SCOTT_QUEUE_TP) {
       MichaelScottQueueTpBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
@@ -126,6 +123,10 @@ int main(int argc, char* argv[])
       LockFreeTreeValuePoolBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
     }
+    else if (params.UnitId() == Unit::WAIT_FREE_SIM_STACK) {
+      WaitFreeSimStackBenchmarkRunner benchmark(params);
+      runBenchmark(benchmark, params);
+    }
     else if (params.UnitId() == Unit::WAIT_FREE_SIM_STACK_TAGGED) {
       WaitFreeSimStackTaggedBenchmarkRunner benchmark(params);
       runBenchmark(benchmark, params);
@@ -147,6 +148,5 @@ int main(int argc, char* argv[])
     ::std::cerr << "Exception caught: " << e.what() << ::std::endl;
     return 3; 
   }
-
   return confirmExit();
 }
