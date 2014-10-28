@@ -48,14 +48,9 @@ coreglitchPalettes <- list(
 
 coreglitchScaleColorDiscrete <- function(nColors = 6, guide = F, type = "qual") {
   if (type == "qual") {
-#    scale_color_brewer(type = "qual", palette = "Set1")
    scale_color_manual(values = coreglitchPalettes$ylgn)
-#    colorFun <- colorRampPalette(c("#00d653", "#ff0000"), space = "rgb", interpolate = "linear")
-#    scale_color_manual(values = colorFun(nColors))
   } else if (type == "seq") {
-  # scales::seq_gradient_pal(low = "#132B43", high = "#56B1F7", space = "Lab")
     scale_color_manual(values = coreglitchPalettes$d)
-  # scale_color_brewer(type = "seq", palette = "Spectral")
   }
 #  scale_color_discrete(h.start = 190,
 #                       h = range(10,260),
@@ -65,10 +60,7 @@ coreglitchScaleColorDiscrete <- function(nColors = 6, guide = F, type = "qual") 
 
 coreglitchScaleFillDiscrete <- function(nColors = 6, guide = F, type = "qual") {
   if (type == "qual") {
-#    scale_fill_brewer(type = "qual", palette = "Set1")
     scale_fill_manual(values = coreglitchPalettes$ylgn)
-#    colorFun <- colorRampPalette(c("#00d653", "#ff0000"), space = "rgb", interpolate = "linear")
-#    scale_fill_manual(values = colorFun(nColors))
   } else if (type == "seq") {
     scale_fill_manual(values = coreglitchPalettes$d)
   }
@@ -77,35 +69,26 @@ coreglitchScaleFillDiscrete <- function(nColors = 6, guide = F, type = "qual") {
 coreglitchScaleFillContinuous <- function(nColors = 8, guide = F, type = "qual") {
   colorFun <- colorRampPalette(c("#efefef", "#ff0000"), space = "rgb", interpolate = "linear")
   scale_fill_manual(values = colorFun(nColors))
-# scale_fill_manual(values = coreglitchPalettes$d)
-# scale_fill_brewer(type = "qual", palette = "Set1")
-# cols <- brewer_pal("div")(nColors)
-# show_col(gradient_n_pal(cols)(seq(0, 1, length = 30)))
 }
 
 coreglitchScaleColorContinuous <- function(nColors = 8, guide = F, type = "qual") {
    scale_color_manual(values = coreglitchPalettes$d)
-#  scale_color_brewer(type = "qual", palette = "Set1")
-#  cols <- brewer_pal("div")(nColors)
-#  show_col(gradient_n_pal(cols)(seq(0, 1, length = 30)))
 }
 
-#  scale_color_brewer(
-#    palette = "Set1", type = "div") +
-#  scale_fill_brewer(
-#    palette = "Set1", type = "div") +
-#  scale_fill_manual(values = colorBlindPaletteBright) +
-#  scale_color_manual(values = colorBlindPaletteDark) +
-
-coreglitchTheme <- function(hasLegend = T, hasAxisTitleY = T, reducedGrid = F, fontScale = 1, ...)
+coreglitchTheme <- function(hasLegend = T, hasAxisTitleY = T, reducedGrid = F, fontScale = 1, legend.position = NA, ...)
 {
-  if (hasLegend) {
-    legendPosition <- c(0, -0.4)
-  } else {
-    legendPosition <- "none"
+  if (is.na(legend.position)) {
+    if (hasLegend) {
+      legendPosition <- c(0, -0.4)
+    } else {
+      legendPosition <- "none"
+    }
+  }
+  else {
+    legendPosition = legend.position
   }
   if (hasAxisTitleY) {
-    axisTitleY <- element_text(size   = 8,
+    axisTitleY <- element_text(size   = 8 * fontScale,
                                hjust  = 0.5,
                                vjust  = 1.5,
                                angle  = 90)
@@ -158,7 +141,7 @@ coreglitchTheme <- function(hasLegend = T, hasAxisTitleY = T, reducedGrid = F, f
     panel.margin.x       = unit(0, "points"),
     panel.grid.minor.x   = element_blank(),
     panel.grid.major.x   = element_blank(),
-    panel.grid.minor.y   = element_line(colour   = NA,
+    panel.grid.minor.y   = element_line(colour   = coreglitchColors$brightLine,
                                         linetype = ifelse(reducedGrid,
                                                           "dotted", "solid")),
     panel.grid.major.y   = element_line(colour   = coreglitchColors$brightLine,

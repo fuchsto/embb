@@ -1,5 +1,6 @@
 
-source('colors.R')
+source('latencies.R')
+source('theme.R')
 source('util.R')
 
 library(ggplot2)
@@ -10,22 +11,17 @@ require(tikzDevice)
 library(scales)
 library(plyr)
 
-if (F) {
-plotLatencyTimeSeries(nBins = 50,
-                      unit = "koganpetrank-pl",
-                      selectedOps = c("Add", "RemoveAny", "Buffer"),
-                      execNr = 0,
-                      scenario = 4,
-                      zoom = 0)
-}
-plotLatencyTimeSeries <- function(nBins       = 400,
-                                  selectedOps = c('Add', 'RemoveAny'),
+plotLatencyTimeSeries <- function(nBins         = 400,
+                                  selectedOps   = c('Add', 'RemoveAny'),
                                   scenario,
                                   execNr,
                                   unit,
-                                  zoom = 0)
+                                  zoom          = 0,
+                                  latencyGroups = 0,
+                                  fontScale     = 1,
+                                  ...)
 {
-  baseDataFilePath <- Sys.getenv(c("BENCHMARK_DATAFILES_BASEPATH"))
+  baseDataFilePath <- conc(Sys.getenv(c("BENCHMARK_DATAFILES_BASEPATH")), "/latency")
 
   dframe.lats <- collectLatencyDataFrame(
     baseDataFilePath,
@@ -34,6 +30,11 @@ plotLatencyTimeSeries <- function(nBins       = 400,
     execNrs     = c(execNr),
     execId      = '',
     selectedOps = selectedOps)
+
+  if (dim(dframe.lats)[1] < 1) {
+    cout("No data found")
+    return(F)
+  }
 
   dframe.lats <- dframe.lats %>% dplyr::arrange(start) %>% dplyr::filter(start > 0)
 
@@ -62,18 +63,18 @@ plotLatencyTimeSeries <- function(nBins       = 400,
 
       segMinT  <- min(dframe.lats.t.o$start)
       segMaxT  <- max(dframe.lats.t.o$end)
-      seqRange <- segMaxT - segMinT
-      seqStep  <- seqRange / nBins
+      segRange <- segMaxT - segMinT
+      segStep  <- segRange / nBins
       cout(threadId, "-", tOp, ": ",
            "segMinT:  ", segMinT,  ", ",
            "segMaxT:  ", segMaxT,  ", ",
-           "seqRange: ", seqRange, ", ",
-           "seqStep:  ", seqStep,  ", ")
-      for (tseg in c(seq(from = segMinT, to = segMaxT - seqStep, by = seqStep))) {
+           "segRange: ", segRange, ", ",
+           "segStep:  ", segStep,  ", ")
+      for (tseg in c(seq(from = segMinT, to = segMaxT - segStep, by = segStep))) {
         dframe.lats.seg <- subset(dframe.lats.t.o,
                                   dframe.lats.t.o$op    == tOp &
                                     dframe.lats.t.o$start >= tseg &
-                                    dframe.lats.t.o$end   < tseg + seqStep)
+                                    dframe.lats.t.o$end   < tseg + segStep)
         if (nrow(dframe.lats.seg) < 2) {
           #  cout("Empty time segment")
         }
@@ -83,7 +84,7 @@ plotLatencyTimeSeries <- function(nBins       = 400,
             "op"             = c(list.lats.c$op,          tOp),
             "latency.max"    = c(list.lats.c$latency.max, max(dframe.lats.seg$latency)),
             "start.min"      = c(list.lats.c$start.min,   tseg),
-            "end.max"        = c(list.lats.c$end.max,     tseg + seqStep)
+            "end.max"        = c(list.lats.c$end.max,     tseg + segStep)
           )
         }
       }
@@ -99,23 +100,27 @@ plotLatencyTimeSeries <- function(nBins       = 400,
   # History of latencies:
   hist.lats.f <- hist(dframe.lats.c$latency.max, breaks = lats.f.lvls, plot = F)
 
-if (F) {
-  dframe.lats.c$latency.max <- sapply(
-    dframe.lats.c$latency.max,
-    function(l) {
-      li <- which(hist.lats.f$breaks == l)
-      vl <- ifelse(li < 10 | li == length(hist.lats.f$breaks), l, hist.lats.f$breaks[10])
-      vl
-    }
-  )
-}
+  if (latencyGroups > 0) {
+    dframe.lats.c$latency.max <- sapply(
+      dframe.lats.c$latency.max,
+      function(l) {
+        li <- which(hist.lats.f$breaks == l)
+        vl <- ifelse(li < latencyGroups | li == length(hist.lats.f$breaks), l, hist.lats.f$breaks[latencyGroups])
+        vl
+      }
+    )
+    latLevels <- latencyGroups + 1
+  }
+  else {
+    latLevels <- unique(c(dframe.lats.c$latency.max))
+    latLevels <- 300
+  }
   dframe.lats.c$latency.max <- droplevels(factor(dframe.lats.c$latency.max))
 
   dframe.lats.c$thread.op   <- paste(dframe.lats.c$thread,
                                      dframe.lats.c$op,
                                      sep = '.')
-  latLevels <- unique(c(dframe.lats.c$latency.max))
-  latLevels <- 300
+
   cout("Measurements:   ", nrow(dframe.lats.c))
   cout("Operations:     ", unique(dframe.lats.c$op))
   cout("Latency levels: ", latLevels)
@@ -131,27 +136,26 @@ if (F) {
         group    = factor(op),
         y        = start.min,
         x        = factor(thread),
-        fill     = latency.max,
-        color    = factor(op),
-      # alpha    = latency.max,
-        width    = 0.8,
+        fill     = factor(op),
+        alpha    = latency.max,
+        width    = 0.85,
         height   = (end.max-start.min)
       ),
-    # color    = "#adadad",
+      color    = "#adadad",
       position = "dodge"
     )
 
   p.lats <- p.lats +
     guides(
-           fill  = element_blank(),
-       #   alpha = guide_legend(position = "none",
-       #                        title    = ""),
-           color = guide_legend(position = "Operation")
+      color = FALSE,
+      alpha = FALSE,
+      fill  = guide_legend(title = "Operation")
     )
 
   p.lats <- p.lats +
     coreglitchScaleColorDiscrete(type = "seq") +
-    coreglitchScaleFillContinuous(type = "qual", nColors = latLevels)
+  # coreglitchScaleFillContinuous(type = "qual", nColors = latLevels)
+    coreglitchScaleFillDiscrete(type = "seq", nColors = latLevels)
 
   p.lats <- p.lats +
     scale_y_continuous() +
@@ -168,15 +172,14 @@ if (F) {
     p.lats <- p.lats +
       coord_flip()
   }
-  if (F) {
-    p.lats <- p.lats +
-      coreglitchTheme(
-        legend.position = "right"
-      )
-  }
-  else {
-    p.lats <- p.lats + theme_classic()
-  }
+
+  p.lats <- p.lats +
+    coreglitchTheme(
+      legend.position = "bottom",
+      fontScale       = fontScale,
+      ...
+    )
+
   p.lats
 }
 

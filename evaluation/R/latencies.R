@@ -11,7 +11,7 @@ library(plyr)
 library(scales)
 library(dplyr)
 
-source('colors.R')
+source('theme.R')
 source('util.R')
 
 # l.dframe <- collectLatencyDataFrame(
@@ -45,12 +45,13 @@ plotBenchmarkLatencyData <- function(datatype,
                                      execId       = '',
                                      plotType     = "violin",
                                      plotDevice   = "eps",
+                                     fontScale    = 1,
                                      ...)
 {
   baseDataFilePath <- Sys.getenv(c("BENCHMARK_DATAFILES_BASEPATH"))
   basePlotFilePath <- Sys.getenv(c("BENCHMARK_PLOTFILES_BASEPATH"))
 
-  baseDataFilePath <- paste(baseDataFilePath, "armQuad", sep = '/')
+  baseDataFilePath <- paste(baseDataFilePath, "latency", sep = '/')
 
   if (is.na(file.info(baseDataFilePath)["isdir"])) {
     write("BENCHMARK_DATAFILES_BASEPATH does not exist", stderr())
@@ -85,11 +86,6 @@ plotBenchmarkLatencyData <- function(datatype,
                              collapse = "-"))
   plotFilePath <- paste(plotBasePath, plotFileName, sep = '/')
 
-  fontScale = 1
-  if (plotDevice == "win") {
-    fontScale = 1.3
-  }
-
   if (plotType == "jitter") {
     gp <- gOperationLatencyJitterPlot(
       dframe, selectedOps = selectedOps, fontScale = fontScale, ...)
@@ -98,9 +94,6 @@ plotBenchmarkLatencyData <- function(datatype,
       dframe, selectedOps = selectedOps, fontScale = fontScale, ...)
   } else if(plotType == "histogram") {
     gp <- gOperationLatencyHistogram(
-      dframe, selectedOps = selectedOps, fontScale = fontScale, ...)
-  } else if(plotType == "heat") {
-    gp <- gOperationLatencyHeatPlot(
       dframe, selectedOps = selectedOps, fontScale = fontScale, ...)
   } else if(plotType == "boxplot") {
     gp <- gOperationLatencyBoxPlot(
@@ -123,20 +116,23 @@ plotBenchmarkLatencyData <- function(datatype,
          width      = colWidthInches,
          height     = plotTotalHeight)
   }
-  else if (plotDevice == "eps") {
-    cout("Writing to file ", plotFilePath, ".eps")
-    ggsave(filename = conc(plotFilePath, ".eps"),
+  else if (plotDevice == "win") {
+    cout("Output to window")
+    windows(width     = colWidthInches,
+            height    = plotTotalHeight,
+            antialias = "cleartype")
+  }
+  else if (plotDevice == "default") {
+    return(gp)
+  }
+  else {
+    cout("Writing to file ", plotFilePath, ".", plotDevice)
+    ggsave(filename = conc(plotFilePath, ".", plotDevice),
            plot     = gp,
            width    = colWidthInches,
            height   = plotTotalHeight,
            scale    = 1.0,
            units    = "in")
-  }
-  else if (plotDevice == "win") {
-    cout("Output file path: ", plotFilePath, ".eps")
-    windows(width     = colWidthInches,
-            height    = plotTotalHeight,
-            antialias = "cleartype")
   }
 
   print(gp)
@@ -170,7 +166,7 @@ readLatData <- function(filename) {
                  skipNul       = T,
                  header        = TRUE,
                  fill          = TRUE,
-                 skip          = 1,
+                 skip          = 5,
                  colClasses    = rep("numeric", nCols))
   cout("Data dimensions: ", dim(df))
   # Delete superfluous column:
@@ -539,8 +535,7 @@ gOperationLatencyViolinPlot <- function(dframe,
                                         maxClusterPoints,
                                         minClusterPoints)
 
-# dframe.c    <- rbind(dfInliers.c, dfOutliers)
-  dframe.c    <- dfInliers.c
+  dframe.c    <- rbind(dfInliers.c, dfOutliers)
 
   # Every aesthetic in the main ggplot call is expected in every
   # subsequent geom, so repeat attribte name "latency":
@@ -579,7 +574,7 @@ gOperationLatencyViolinPlot <- function(dframe,
 
   yMinValue <- min(dframe.c$latency)
   yMaxValue <- max(dframe.c$latency)
-  # yLabels <- formatC(yBreaks, format = "g", digits = 2)
+# yLabels <- formatC(yBreaks, format = "g", digits = 2)
   yLabels <- sapply(
     yBreaks,
     function(x) { round(x / 1000, digits = 0) }
@@ -701,7 +696,7 @@ gOperationLatencyViolinPlot <- function(dframe,
                             dframeMaxLabs$op)
       ),
       vjust    = -0.5,
-      size     = 2.3,
+      size     = 2.3 * fontScale,
       color    = "black",
     ) +
     labs(
@@ -714,7 +709,12 @@ gOperationLatencyViolinPlot <- function(dframe,
     ) +
     expand_limits(
       # More headroom for annotation of max latency:
-      y = c(0, max(pretty(c(dframe.c$y, yMaxValue * (1.1)))))
+      y = c(0, max(
+        pretty(c(
+          dframe.c$y,
+          yMaxValue * 1.1)
+        )
+      ))
     ) +
     scale_x_discrete(
       labelX
@@ -818,29 +818,29 @@ gOperationLatencyHistogram <- function(dframe,
 
 aggregateLatencyData <- function(dframe, outlierMaxProb = 0.000009)
 {
-  dframe.agg <- dframe %.%
+  dframe.agg <- dframe %>%
     # total = amount of measurements for a specific
     #         combination of (unit, op):
-    dplyr::group_by(unit, exec, op) %.%
-    dplyr::mutate(total   = sum(op)) %.%
-    dplyr::group_by(unit, exec, op, latency) %.%
+    dplyr::group_by(unit, exec, op) %>%
+    dplyr::mutate(total   = sum(op)) %>%
+    dplyr::group_by(unit, exec, op, latency) %>%
     # n = amount of measurements for (unit,op) with
     #     this latency value:
-    dplyr::mutate(n       = length(op)) %.%
-    dplyr::mutate(prob    = n/total) %.%
+    dplyr::mutate(n       = length(op)) %>%
+    dplyr::mutate(prob    = n/total) %>%
     dplyr::mutate(outlier = prob < outlierMaxProb)
   return(dframe.agg)
 }
 
 summarizeLatencyData <- function(dframe, outlierMaxProb = 0.000009)
 {
-  dframe.sum <- dframe %.%
-    dplyr::group_by(unit, exec, op, latency) %.%
-    dplyr::summarise(n = length(op)) %.%
-    dplyr::mutate(latencyMin = min(latency)) %.%
-    dplyr::mutate(latencyMax = max(latency)) %.%
-    dplyr::mutate(total      = sum(n)) %.%
-    dplyr::mutate(prob       = n/total) %.%
+  dframe.sum <- dframe %>%
+    dplyr::group_by(unit, exec, op, latency) %>%
+    dplyr::summarise(n = length(op)) %>%
+    dplyr::mutate(latencyMin = min(latency)) %>%
+    dplyr::mutate(latencyMax = max(latency)) %>%
+    dplyr::mutate(total      = sum(n)) %>%
+    dplyr::mutate(prob       = n/total) %>%
     dplyr::mutate(outlier    = prob < outlierMaxProb)
   return(dframe.sum)
 }
@@ -851,10 +851,10 @@ consolidateLatencyData <- function(dframe.agg, minClusterPoints, maxClusterPoint
   # plot, so overplotting would render vector output useless.
   # Make data points more sparse in dense areas, and use larger
   # points in the plot for data with high probability.
-  df.sparse <- dframe.agg %.%
-    dplyr::filter(outlier == F) %.%
-    dplyr::group_by(unit, exec, op, latency) %.%
-    dplyr::arrange(prob) %.%
+  df.sparse <- dframe.agg %>%
+    dplyr::filter(outlier == F) %>%
+    dplyr::group_by(unit, exec, op, latency) %>%
+    dplyr::arrange(prob) %>%
     dplyr::do({
       nClusterSize <- nrow(.)
       nClusterData <- as.integer(
