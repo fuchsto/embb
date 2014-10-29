@@ -29,6 +29,10 @@
 
 #include <embb/base/thread.h>
 
+#if defined(EMBB_THREADING_POSIXTHREADS)
+#include <sched.h>
+#endif
+
 namespace embb {
 namespace benchmark {
 namespace internal {
@@ -36,6 +40,16 @@ namespace internal {
 template< typename TUnit, typename TLatencyMeasurements >
 void ProducerConsumerThread<TUnit, TLatencyMeasurements>::
 TaskWrapper() {
+#if defined(EMBB_THREADING_POSIXTHREADS)
+  if (!callArgs.DefaultScheduler()) {
+    // Try to set real-time scheduler (FIFO) to limit 
+    // OS interference. Must be run as root. 
+    struct sched_param schedParam;
+    schedParam.sched_priority = sched_get_priority_max(SCHED_FIFO);
+    // PID 0 sets scheduler for calling thread
+    sched_setscheduler(0, SCHED_FIFO, &schedParam);
+  }
+#endif
   while (!this->IsRunning()) {
     embb::base::Thread::CurrentYield();
   }

@@ -12,11 +12,9 @@ if (BUILD_BENCHMARKS STREQUAL ON)
   file(GLOB_RECURSE EMBB_BASE_CPP_PERF_SOURCES "perf/*.cc" "perf/*.h")
   file(GLOB_RECURSE EMBB_BASE_CPP_PERF_HEADERS "perf/include/embb/*.h")
 endif()
-if (EMBB_USE_PAPI)
+if (USE_PERFORMANCE_API STREQUAL ON)
   message("   papi headers included from ${EMBB_BASE_CPP_PERF_PAPI_INC}")
   message("   papi library linked from   ${EMBB_BASE_CPP_PERF_PAPI_LIB}")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEMBB_USE_PAPI")
-  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DEMBB_USE_PAPI")
 endif()
 
 # Create header file from input file

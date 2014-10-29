@@ -91,10 +91,13 @@ Run() {
 WaitFreeCompartmentValuePoolBenchmarkRunner::
 WaitFreeCompartmentValuePoolBenchmarkRunner(const CallArgs & callArgs)
 : args(callArgs),
+  numNodes(
+      args.NumElements() + 
+      args.QParam() * (embb::base::Thread::GetThreadsMaxCount() - 1)),
   pool(IncrementIterator(0), 
-       IncrementIterator(args.NumElements()), 
+       IncrementIterator(numNodes),
        args.QParam()) {
-  benchmark = new benchmark_t(&pool, args);
+  benchmark = new benchmark_t(&pool, args, numNodes);
 }
 
 ::std::auto_ptr< embb::benchmark::Report >
@@ -115,3 +118,4 @@ Run() {
 
 } // namespace benchmark
 } // namespace embb
+

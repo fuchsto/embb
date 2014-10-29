@@ -65,6 +65,8 @@ template< typename TPool >
 void PoolBenchmark<TPool>::BagProducerConsumerThread::
 PreallocateElements(size_t n_prealloc, bool forDeallocation)
 {
+  Console::WriteValue("Thread", this->Id());
+  Console::WriteValue("Prealloc", n_prealloc);
   for (size_t r_a = 0; r_a < n_prealloc; ++r_a) {
     element_t node_index;
     int index = this->Unit().Allocate(node_index);

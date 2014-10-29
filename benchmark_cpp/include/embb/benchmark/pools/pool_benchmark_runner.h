@@ -55,8 +55,6 @@ public:
 
 private: 
 
-  ::std::vector< PoolLatencyMeasurements::node_t > nodes;
-
   CallArgs        args;
   concrete_pool_t pool;
   benchmark_t *   benchmark;
@@ -86,8 +84,6 @@ public:
   typedef PoolBenchmark< concrete_pool_t > benchmark_t;
 
 private:
-
-  ::std::vector< PoolLatencyMeasurements::node_t > nodes;
 
   CallArgs        args;
   concrete_pool_t pool;
@@ -119,9 +115,8 @@ public:
 
 private:
 
-  ::std::vector< PoolLatencyMeasurements::node_t > nodes;
-
   CallArgs           args;
+  size_t             numNodes;
   compartment_pool_t pool;
   benchmark_t *      benchmark;
 

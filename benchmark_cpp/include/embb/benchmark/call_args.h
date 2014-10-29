@@ -186,6 +186,10 @@ public:
     return timer_param;
   }
 
+  inline bool DefaultScheduler() const { 
+    return false;  // TODO
+  }
+
 public:
   void ParseArgs(int argc, char* argv[]);
   void Print() const;

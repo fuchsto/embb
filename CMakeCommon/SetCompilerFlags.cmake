@@ -29,11 +29,13 @@ function(SetGNUCompilerFlags compiler_libs)
     set(compiler_libs pthread rt PARENT_SCOPE)
     if(EMBB_USE_PAPI)
       set(compiler_libs ${compiler_libs} papi)
+      set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -DEMBB_USE_PAPI")
+      set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DEMBB_USE_PAPI")
     endif()
     # -Wall   -> All warnings
     # -Wextra -> Even more warnings
     # -Werror -> Warnings are errors
-    set(warning_flags "-Wall -Wextra -pedantic")
+    set(warning_flags "-Wall -Wextra")
     if (WARNINGS_ARE_ERRORS STREQUAL ON)
       set(warning_flags "${warning_flags} -Werror")
     endif()
