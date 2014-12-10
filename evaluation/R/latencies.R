@@ -44,7 +44,7 @@ plotBenchmarkLatencyData <- function(datatype,
                                      selectedOps,
                                      execId       = '',
                                      plotType     = "violin",
-                                     plotDevice   = "eps",
+                                     plotDevice   = "default",
                                      fontScale    = 1,
                                      ...)
 {
@@ -521,7 +521,8 @@ gOperationLatencyViolinPlot <- function(dframe,
                                         maxClusterPoints = 300,
                                         minClusterPoints = 10,
                                         scale            = 1000.0,
-                                        fontScale        = 1)
+                                        fontScale        = 1, 
+                                        maxLabelHeadroom = 1.1)
 {
   opNames     <- selectedOps
   execNrs     <- unique(dframe$exec)
@@ -712,7 +713,7 @@ gOperationLatencyViolinPlot <- function(dframe,
       y = c(0, max(
         pretty(c(
           dframe.c$y,
-          yMaxValue * 1.1)
+          yMaxValue * maxLabelHeadroom)
         )
       ))
     ) +

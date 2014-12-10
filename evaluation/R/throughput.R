@@ -31,6 +31,7 @@ plotBenchmarkSummary = function(datatype,
                                 execId,
                                 plotTitles   = c(),
                                 axisXLabel   = "threads",
+                                axisYLabel   = NA,
                                 ops,
                                 featureName,
                                 groupAttribute,
@@ -38,7 +39,7 @@ plotBenchmarkSummary = function(datatype,
                                 showLegend   = FALSE,
                                 legendTitle  = "",
                                 showTitleY   = TRUE,
-                                previewPlot  = TRUE,
+                                plotDevice   = "default",
                                 commonYScale = TRUE,
                                 dframeOnly   = FALSE,
                                 ...)
@@ -111,12 +112,12 @@ plotBenchmarkSummary = function(datatype,
 
   vfColumns <- sapply(ops, function(op) { featureColumns(op) })
   fColumns  <- sapply(ops, function(op) { featureColumns(op)[featureIndex] })
-  fLabel    <- featureLabels[featureIndex]
+  fLabel    <- ifelse(is.na(axisYLabel), featureLabels[featureIndex], axisYLabel)
 
-  texplotBasePath <- paste(basePlotFilePath, datatype, sep = '/')
-  texplotFileName <- conc(paste(c(units, fColumns, execId), collapse = "-"), ".tex")
-  texplotFilePath <- paste(texplotBasePath, texplotFileName, sep = '/')
-  cout("Writing ", texplotFilePath)
+  plotBasePath <- paste(basePlotFilePath, datatype, sep = '/')
+  plotFileName <- paste(c(units, fColumns, execId), collapse = "-")
+  plotFilePath <- paste(plotBasePath, plotFileName, sep = '/')
+  cout("Writing ", plotFilePath, ".", plotDevice)
 
   ggPlots      <- list()
   nPlotsTotal  <- ifelse(groupAttribute == "op",
@@ -143,14 +144,15 @@ plotBenchmarkSummary = function(datatype,
       gpRes  <- gLineplotFeaturesVsNumThreads(summaryData    = sumData,
                                               plotTitle      = pTitle,
                                               feature        = fColumn,
-                                              featureLabel   = fLabel,
+                                              axisYLabel     = axisYLabel,
                                               axisXLabel     = axisXLabel,
                                               selectedOps    = ops,
                                               groupAttribute = groupAttribute,
                                               showLegend     = (nPlot == 1),
                                               legendTitle    = legendTitle,
                                               showTitleY     = showTitleY,
-                                              commonYScale   = commonYScale)
+                                              commonYScale   = commonYScale,
+                                              ...)
       ggPlots[[nPlot]] <- gpRes
       nPlot <- nPlot + 1
     }
@@ -169,14 +171,15 @@ plotBenchmarkSummary = function(datatype,
       gpRes  <- gLineplotFeaturesVsNumThreads(summaryData    = sumData,
                                               plotTitle      = pTitle,
                                               feature        = fColumns,
-                                              featureLabel   = fLabel,
+                                              axisYLabel     = axisYLabel,
                                               axisXLabel     = axisXLabel,
                                               selectedOps    = ops,
                                               groupAttribute = groupAttribute,
                                               showLegend     = (nPlot == 1),
                                               legendTitle    = legendTitle,
                                               showTitleY     = showTitleY,
-                                              commonYScale   = commonYScale)
+                                              commonYScale   = commonYScale,
+                                              ...)
       ggPlots[[nPlot]] <- gpRes
       nPlot <- nPlot + 1
     }
@@ -191,36 +194,46 @@ plotBenchmarkSummary = function(datatype,
         gpRes  <- gLineplotFeaturesVsNumThreads(summaryData    = sumData,
                                                 plotTitle      = pTitle,
                                                 feature        = fColumn,
-                                                featureLabel   = fLabel,
+                                                axisYLabel     = axisYLabel,
                                                 axisXLabel     = axisXLabel,
                                                 selectedOps    = ops,
                                                 groupAttribute = groupAttribute,
                                                 showLegend     = (nPlot == 1),
                                                 legendTitle    = legendTitle,
                                                 showTitleY     = showTitleY,
-                                                commonYScale   = commonYScale)
+                                                commonYScale   = commonYScale,
+                                                ...)
         ggPlots[[nPlot]] <- gpRes
         nPlot <- nPlot + 1
       }
     }
   }
 
-  plotColumnWidthInches <- as.double(Sys.getenv(c("PLOTS_COLUMNWIDTH_IN")))
-
-  if (previewPlot) {
-    windows(width     = plotColumnWidthInches,
-            height    = 2.4,
+  colWidthInches  <- as.double(Sys.getenv(c("PLOTS_COLUMNWIDTH_IN")))
+  plotTotalHeight <- 2.4 * fontScale
+  if (plotDevice == "win") {
+    windows(width     = colWidthInches,
+            height    = plotTotalHeight,
             antialias = "cleartype")
-  }
-  else {
+  } else if (plotDevice == "tex") {
     ## Write plot to TEX file:
-    tikz(texplotFilePath,
+    tikz(conc(plotFilePath, ".tex"),
          engine     = "pdftex",
          standAlone = FALSE,
          pointsize  = 8,
-         width      = plotColumnWidthInches,
-         height     = 2.4) # was: 2.6
-  }
+         width      = colWidthInches,
+         height     = plotTotalHeight) # was: 2.6
+  } else if (plotDevice == "default") {
+    return(gpRes)
+  } else {
+    cout("Writing to file ", plotFilePath, ".", plotDevice)
+    ggsave(filename = conc(plotFilePath, ".", plotDevice),
+           plot     = gpRes,
+           width    = colWidthInches,
+           height   = plotTotalHeight,
+           scale    = 1.0,
+           units    = "in")
+    }
 
   print(ggPlots[1])
 
@@ -340,6 +353,7 @@ gLineplotFeaturesVsNumThreads = function(summaryData,
                                          feature        = "opsPerSec",
                                          featureLabel   = "operations / s",
                                          axisXLabel     = "threads",
+                                         axisYLabel     = "operations / s",
                                          facetAttribute = "type",
                                          groupAttribute = "numIterations",
                                          selectedOps    = c(),
@@ -348,7 +362,8 @@ gLineplotFeaturesVsNumThreads = function(summaryData,
                                          showLegend     = TRUE,
                                          showTitleY     = TRUE,
                                          numPlotColumns = 2,
-                                         commonYScale   = TRUE)
+                                         commonYScale   = TRUE, 
+                                         fontScale      = 1)
 {
   env         <- environment()
   units       <- unique(summaryData$type)
@@ -437,13 +452,13 @@ gLineplotFeaturesVsNumThreads = function(summaryData,
     ) +
     labs(title = plotTitle,
          x     = axisXLabel,
-         y     = NA) +
+         y     = axisYLabel) +
     guides(fill     = guide_legend(keywidth = 2, title = legendTitle),
            linetype = guide_legend(keywidth = 2, title = legendTitle),
            shape    = guide_legend(keywidth = 2, title = legendTitle),
            colour   = guide_legend(keywidth = 2, title = legendTitle)) +
     geom_line(
-      size       = 0.1,
+      size       = 0.3 * fontScale,
       show_guide = FALSE,
       aes(linetype = grouping,
           colour   = grouping)) +
@@ -457,7 +472,7 @@ gLineplotFeaturesVsNumThreads = function(summaryData,
     a <- a + scale_y_continuous(limits = c(yMinValue, yMaxValue),
                                 breaks = yBreaks,
                                 labels = yLabels,
-                                name   = featureLabel)
+                                name   = axisYLabel)
   }
   else {
     a <- a + scale_y_continuous(labels = f2si)
@@ -496,7 +511,8 @@ else {
       reducedGrid      = TRUE,
       hasAxisTitleY    = showTitleY,
       legend.direction = "horizontal",
-      legend.box       = "horizontal"
+      legend.box       = "horizontal",
+      fontScale        = fontScale
     )
 
   a

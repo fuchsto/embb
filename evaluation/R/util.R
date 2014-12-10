@@ -78,18 +78,18 @@ f2si = function (number,
   
   ix <- findInterval(number, lut)
   
-  sepSpace <- ifelse(space, "\\,", '')
+  sepSpace <- ifelse(space, " ", '')
   
   if (ix>0 && ix<length(lut) && lut[ix]!=1) 
   {
     if (rounding==T && !is.numeric(digits))  {
-      sistring <- paste(round(number/lut[ix]), pre[ix], sep=sepSpace)
+      sistring <- paste(round(number/lut[ix]), pre[ix], sep = sepSpace)
     }
     else if (rounding == T || is.numeric(digits)) {
-      sistring <- paste(signif(number/lut[ix], digits), pre[ix], sep=sepSpace)
+      sistring <- paste(signif(number/lut[ix], digits), pre[ix], sep = sepSpace)
     }
     else {
-      sistring <- paste(number/lut[ix], pre[ix], sep=sepSpace)
+      sistring <- paste(number/lut[ix], pre[ix], sep = sepSpace)
     } 
   }
   else 

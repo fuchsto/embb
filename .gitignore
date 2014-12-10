@@ -22,3 +22,5 @@ build*
 *.pdf
 *.toc
 *.synctex.gz
+*.RData
+*.Rhistory

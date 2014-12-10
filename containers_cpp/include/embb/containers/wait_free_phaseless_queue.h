@@ -479,7 +479,6 @@ public:
     }
     index_t deqNodeIdx = node.NextPoolIdx();
     retElement = nodePool[deqNodeIdx].Value();
-
     // Node value returned is safe, release guard on 
     // dequeued node index: 
     hp.EnqueuePointerForDeletion(nodeIdx);
@@ -515,9 +514,7 @@ private:
       index_t lastIdx   = tailIdx.Load();
       Node_t & lastNode = nodePool[lastIdx];
       index_t nextIdx   = lastNode.NextPoolIdx();
-
 //    hp.GuardPointer(0, lastIdx);
-
       // Last node still is tail: 
       if (lastIdx == tailIdx.Load()) {
         // tail.next is null (no pending enqueue on tail): 
@@ -558,15 +555,12 @@ private:
     
     if (!lastNode.NextIsNull()) {
       index_t nextIdx = lastNode.NextPoolIdx();
-
 //    hp.GuardPointer(0, nextIdx);
-
       Node_t & nextNode = nodePool[nextIdx];
       // Load accessor id from last (non-tail) element in list: 
       index_t helpAID   = nextNode.EnqueueAID();
       // Load operation for accessor that started the unfinished enqueue: 
-      OperationDesc helpOp(operationDescriptions[helpAID].Load());
-      
+      OperationDesc helpOp(operationDescriptions[helpAID].Load());      
       // tail index still points at last node: 
       // (last == tail && state[aid].node == next)
       if (lastIdx == tailIdx.Load() &&
@@ -603,22 +597,18 @@ private:
       Node_t & first   = nodePool[firstIdx];
 
       if (firstIdx != headIdx.Load()) {
-        // Head pointer changed by concurrent enqueue
-        
+        // Head pointer changed by concurrent enqueue        
         // Release guard: 
-//      hp.ReleaseGuard(0, firstIdx);
-        
+//      hp.ReleaseGuard(0, firstIdx);        
         // Retry:
         continue;
       }
       if (firstIdx == lastIdx) {
         // Queue might be empty
         if (first.NextIsNull()) {
-          // Queue is empty
-          
+          // Queue is empty          
           // Release guard: 
 //        hp.ReleaseGuard(0, firstIdx);
-
           OperationDesc curOp(operationDescriptions[accessorId].Load());
           if (lastIdx == tailIdx.Load() && IsPending(accessorId)) {
             OperationDesc newOp(
@@ -699,9 +689,7 @@ private:
     index_t firstIdx   = headIdx.Load();
     Node_t & first     = nodePool[firstIdx];
     index_t nextIdx    = first.NextPoolIdx();
-
 //  hp.GuardPointer(1, nextIdx);
-
     index_t accessorId = first.DequeueAID().Load();
     if (accessorId != Node_t::UndefinedIndex) {
       OperationDesc curOp(operationDescriptions[accessorId].Load());
@@ -723,7 +711,6 @@ private:
         headIdx.CompareAndSwap(firstIdx, nextIdx);
       }
     }
-
     // Release guard: 
 //  hp.ReleaseGuard(1, nextIdx);
   }

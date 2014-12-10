@@ -1,5 +1,5 @@
 require(tikzDevice)
-library(extrafont)
+# library(extrafont)
 
 # Install tikzdevice from latest published source:
 # install.packages('tikzDevice', repos = "http://www.rforge.net/", type = "source")
