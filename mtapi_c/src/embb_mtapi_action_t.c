@@ -60,6 +60,10 @@ void embb_mtapi_action_initialize(embb_mtapi_action_t* that) {
 }
 
 void embb_mtapi_action_finalize(embb_mtapi_action_t* that) {
+  if (that->is_plugin_action) {
+    // TODO: check status
+    that->plugin_action_finalize_function(that->handle, NULL);
+  }
   embb_mtapi_action_initialize(that);
 }
 
@@ -131,11 +135,13 @@ mtapi_action_hndl_t mtapi_action_create(
         new_action->domain_id = node->domain_id;
         new_action->node_id = node->node_id;
         new_action->job_id = job_id;
-        new_action->action_function = action_function;
         new_action->node_local_data = node_local_data;
         new_action->node_local_data_size = node_local_data_size;
         new_action->enabled = MTAPI_TRUE;
+        new_action->is_plugin_action = MTAPI_FALSE;
         embb_atomic_store_int(&new_action->num_tasks, 0);
+
+        new_action->action_function = action_function;
 
         /* set defaults if no attributes were given */
         if (MTAPI_NULL != attributes) {
@@ -322,7 +328,8 @@ void mtapi_action_delete(
           node, local_action->job_id);
         embb_mtapi_job_remove_action(local_job, local_action);
       }
-      embb_mtapi_action_finalize(local_action);
+      /* this is done by pool deallocate:
+         embb_mtapi_action_finalize(local_action); */
       embb_mtapi_action_pool_deallocate(node->action_pool, local_action);
     } else {
       local_status = MTAPI_ERR_ACTION_INVALID;

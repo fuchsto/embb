@@ -24,24 +24,11 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#ifndef MTAPI_EXT_H_
+#define MTAPI_EXT_H_
 
-#include <stdio.h>
+// Just includes the actual MTAPI extension header for standard conformity
 
-#include <embb_mtapi_log.h>
+#include <embb/mtapi/c/mtapi_ext.h>
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
-
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
-
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
-}
+#endif // MTAPI_EXT_H_

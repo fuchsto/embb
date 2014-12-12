@@ -24,24 +24,44 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#include <embb_mtapi_network_test_buffer.h>
 
-#include <stdio.h>
+#include <embb_mtapi_network_buffer.h>
 
-#include <embb_mtapi_log.h>
+#include <embb/base/c/memory_allocation.h>
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
+NetworkBufferTest::NetworkBufferTest() {
+  CreateUnit("mtapi network buffer test").Add(&NetworkBufferTest::TestBasic, this);
+}
 
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+void NetworkBufferTest::TestBasic() {
+  embb_mtapi_network_buffer_t buffer;
+  int err;
+
+  embb_mtapi_network_buffer_initialize(&buffer, 1024);
+
+  err = embb_mtapi_network_buffer_push_back_int8(&buffer, -1);
+  PT_EXPECT(err == 1);
+  err = embb_mtapi_network_buffer_push_back_int16(&buffer, -2);
+  PT_EXPECT(err == 2);
+
+  int8_t val8 = 0;
+  err = embb_mtapi_network_buffer_pop_front_int8(&buffer, &val8);
+  PT_EXPECT(err == 1);
+  PT_EXPECT(val8 == -1);
+
+  int32_t val32 = 0;
+  err = embb_mtapi_network_buffer_pop_front_int32(&buffer, &val32);
+  PT_EXPECT(err == 0);
+  PT_EXPECT(val32 == 0);
+
+  int16_t val16 = 0;
+  err = embb_mtapi_network_buffer_pop_front_int16(&buffer, &val16);
+  PT_EXPECT(err == 2);
+  PT_EXPECT(val16 == -2);
+
+  embb_mtapi_network_buffer_finalize(&buffer);
+
+  PT_EXPECT(embb_get_bytes_allocated() == 0);
 }

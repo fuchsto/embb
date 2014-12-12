@@ -24,24 +24,23 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#ifndef MTAPI_C_SRC_EMBB_MTAPI_NETWORK_H_
+#define MTAPI_C_SRC_EMBB_MTAPI_NETWORK_H_
 
-#include <stdio.h>
+#include <stdint.h>
 
-#include <embb_mtapi_log.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
+int embb_mtapi_network_initialize();
 
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+void embb_mtapi_network_finalize();
+
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif // MTAPI_C_SRC_EMBB_MTAPI_NETWORK_H_

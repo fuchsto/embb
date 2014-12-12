@@ -24,70 +24,79 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MTAPI_C_SRC_EMBB_MTAPI_ACTION_T_H_
-#define MTAPI_C_SRC_EMBB_MTAPI_ACTION_T_H_
+#ifndef MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
+#define MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
 
-#include <embb/mtapi/c/mtapi_ext.h>
-#include <embb/base/c/atomic.h>
-
-#include <embb_mtapi_pool_template.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 
-/* ---- CLASS DECLARATION -------------------------------------------------- */
-
-/**
- * \internal
- * Action class.
- *
- * \ingroup INTERNAL
- */
-struct embb_mtapi_action_struct {
-  mtapi_action_hndl_t handle;
-
-  mtapi_domain_t domain_id;
-  mtapi_node_t node_id;
-  mtapi_job_id_t job_id;
-  mtapi_action_function_t action_function;
-  const void* node_local_data;
-  mtapi_size_t node_local_data_size;
-  mtapi_action_attributes_t attributes;
-  mtapi_boolean_t enabled;
-
-  mtapi_boolean_t is_plugin_action;
-  void* plugin_data;
-  mtapi_ext_plugin_task_start_function_t plugin_task_start_function;
-  mtapi_ext_plugin_task_cancel_function_t plugin_task_cancel_function;
-  mtapi_ext_plugin_action_finalize_function_t plugin_action_finalize_function;
-
-  embb_atomic_int num_tasks;
+struct embb_mtapi_network_buffer_struct {
+  int position;
+  int size;
+  int capacity;
+  char * data;
 };
 
-#include <embb_mtapi_action_t_fwd.h>
+typedef struct embb_mtapi_network_buffer_struct embb_mtapi_network_buffer_t;
 
-/**
- * Default constructor.
- * \memberof embb_mtapi_action_struct
- */
-void embb_mtapi_action_initialize(embb_mtapi_action_t* that);
+void embb_mtapi_network_buffer_initialize(
+  embb_mtapi_network_buffer_t * that,
+  int capacity
+);
 
-/**
- * Destructor.
- * \memberof embb_mtapi_action_struct
- */
-void embb_mtapi_action_finalize(embb_mtapi_action_t* that);
+void embb_mtapi_network_buffer_finalize(
+  embb_mtapi_network_buffer_t * that
+);
 
+int embb_mtapi_network_buffer_push_back_int8(
+  embb_mtapi_network_buffer_t * that,
+  int8_t value
+);
 
-/* ---- POOL DECLARATION --------------------------------------------------- */
+int embb_mtapi_network_buffer_push_back_int16(
+  embb_mtapi_network_buffer_t * that,
+  int16_t value
+);
 
-embb_mtapi_pool(action)
+int embb_mtapi_network_buffer_push_back_int32(
+  embb_mtapi_network_buffer_t * that,
+  int32_t value
+);
+
+int embb_mtapi_network_buffer_push_back_rawdata(
+  embb_mtapi_network_buffer_t * that,
+  int32_t size,
+  void * rawdata
+);
+
+int embb_mtapi_network_buffer_pop_front_int8(
+  embb_mtapi_network_buffer_t * that,
+  int8_t * value
+);
+
+int embb_mtapi_network_buffer_pop_front_int16(
+  embb_mtapi_network_buffer_t * that,
+  int16_t * value
+);
+
+int embb_mtapi_network_buffer_pop_front_int32(
+  embb_mtapi_network_buffer_t * that,
+  int32_t * value
+);
+
+int embb_mtapi_network_buffer_pop_front_rawdata(
+  embb_mtapi_network_buffer_t * that,
+  int32_t size,
+  void * rawdata
+);
 
 
 #ifdef __cplusplus
 }
 #endif
 
-#endif // MTAPI_C_SRC_EMBB_MTAPI_ACTION_T_H_
+#endif // MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_

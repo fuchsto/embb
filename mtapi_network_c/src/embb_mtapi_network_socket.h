@@ -24,24 +24,69 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#ifndef MTAPI_C_SRC_EMBB_MTAPI_NETWORK_SOCKET_H_
+#define MTAPI_C_SRC_EMBB_MTAPI_NETWORK_SOCKET_H_
 
-#include <stdio.h>
+#include <stdint.h>
+#include <embb_mtapi_network_buffer.h>
 
-#include <embb_mtapi_log.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
+struct embb_mtapi_network_socket_struct {
+#ifdef _WIN32
+  unsigned int handle;
+#else
+  int handle;
+#endif
+};
 
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+typedef struct embb_mtapi_network_socket_struct embb_mtapi_network_socket_t;
+
+int embb_mtapi_network_socket_initialize(
+  embb_mtapi_network_socket_t * that
+);
+
+void embb_mtapi_network_socket_finalize(
+  embb_mtapi_network_socket_t * that
+);
+
+int embb_mtapi_network_socket_bind_and_listen(
+  embb_mtapi_network_socket_t * that,
+  char const * host,
+  uint16_t port
+);
+
+int embb_mtapi_network_socket_accept(
+  embb_mtapi_network_socket_t * that,
+  embb_mtapi_network_socket_t * sock
+);
+
+int embb_mtapi_network_socket_connect(
+  embb_mtapi_network_socket_t * that,
+  const char * host,
+  uint16_t port
+);
+
+int embb_mtapi_network_socket_select(
+  embb_mtapi_network_socket_t * that,
+  int timeout
+);
+
+int embb_mtapi_network_socket_sendbuffer(
+  embb_mtapi_network_socket_t * that,
+  embb_mtapi_network_buffer_t * buffer
+);
+
+int embb_mtapi_network_socket_recvbuffer(
+  embb_mtapi_network_socket_t * that,
+  embb_mtapi_network_buffer_t * buffer
+);
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif // MTAPI_C_SRC_EMBB_MTAPI_NETWORK_SOCKET_H_

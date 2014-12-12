@@ -26,22 +26,11 @@
 
 #include <partest/partest.h>
 
-#include <stdio.h>
+#include <embb_mtapi_opencl_test_linker.h>
+#include <embb_mtapi_opencl_test_task.h>
 
-#include <embb_mtapi_log.h>
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
-
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
-
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
+PT_MAIN("MTAPI OPENCL") {
+  PT_RUN(LinkerTest);
   PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
 }
