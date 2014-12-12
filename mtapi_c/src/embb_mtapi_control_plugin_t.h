@@ -24,24 +24,53 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#ifndef MTAPI_C_SRC_EMBB_MTAPI_CONTROL_PLUGIN_T_H_
+#define MTAPI_C_SRC_EMBB_MTAPI_CONTROL_PLUGIN_T_H_
 
-#include <stdio.h>
+#include <embb/mtapi/c/mtapi_ext.h>
 
-#include <embb_mtapi_log.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
+/* ---- CLASS DECLARATION -------------------------------------------------- */
 
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+/**
+ * \internal
+ * Action class.
+ *
+ * \ingroup INTERNAL
+ */
+struct embb_mtapi_control_plugin_struct {
+  mtapi_ext_control_plugin_initialize_function_t initialize_function;
+  mtapi_ext_control_plugin_finalize_function_t finalize_function;
+  mtapi_boolean_t initialized;
+};
+
+typedef struct embb_mtapi_control_plugin_struct embb_mtapi_control_plugin_t;
+
+/**
+ * Default constructor.
+ * \memberof embb_mtapi_action_struct
+ */
+void embb_mtapi_ext_control_plugin_initialize(
+  MTAPI_IN mtapi_domain_t domain_id,
+  MTAPI_IN mtapi_node_t node_id,
+  MTAPI_OUT mtapi_status_t* status
+);
+
+/**
+ * Destructor.
+ * \memberof embb_mtapi_action_struct
+ */
+void embb_mtapi_ext_control_plugin_finalize(
+  MTAPI_OUT mtapi_status_t* status
+);
+
+
+#ifdef __cplusplus
 }
+#endif
+
+#endif // MTAPI_C_SRC_EMBB_MTAPI_CONTROL_PLUGIN_T_H_

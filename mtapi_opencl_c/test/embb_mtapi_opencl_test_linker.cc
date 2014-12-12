@@ -24,24 +24,15 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#include <embb_mtapi_opencl_test_linker.h>
 
-#include <stdio.h>
+#include <embb_mtapi_opencl_runtimelinker.h>
 
-#include <embb_mtapi_log.h>
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
+LinkerTest::LinkerTest() {
+  CreateUnit("mtapi opencl linker test").Add(&LinkerTest::TestBasic, this);
+}
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
-
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+void LinkerTest::TestBasic() {
+  PT_EXPECT(embb_mtapi_opencl_link_at_runtime() != 0);
 }

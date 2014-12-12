@@ -24,24 +24,41 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <partest/partest.h>
+#ifndef EMBB_MTAPI_C_MTAPI_OPENCL_H_
+#define EMBB_MTAPI_C_MTAPI_OPENCL_H_
 
-#include <stdio.h>
 
-#include <embb_mtapi_log.h>
+#include <embb/mtapi/c/mtapi_ext.h>
 
-#include <embb_mtapi_test_plugin.h>
-#include <embb_mtapi_test_init_finalize.h>
-#include <embb_mtapi_test_task.h>
-#include <embb_mtapi_test_group.h>
-#include <embb_mtapi_test_queue.h>
 
-PT_MAIN("MTAPI C") {
-  embb_log_set_log_level(EMBB_LOG_LEVEL_NONE);
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-  PT_RUN(PluginTest);
-  PT_RUN(InitFinalizeTest);
-  PT_RUN(TaskTest);
-  PT_RUN(GroupTest);
-  PT_RUN(QueueTest);
+
+void mtapi_opencl_plugin_initialize(
+  MTAPI_OUT mtapi_status_t* status
+);
+
+void mtapi_opencl_plugin_finalize(
+  MTAPI_OUT mtapi_status_t* status
+);
+
+mtapi_action_hndl_t mtapi_opencl_action_create(
+  MTAPI_IN mtapi_job_id_t job_id,
+  MTAPI_IN char* kernel_source,
+  MTAPI_IN char* kernel_name,
+  MTAPI_IN mtapi_size_t local_work_size,
+  MTAPI_IN mtapi_size_t element_size,
+  MTAPI_IN void* node_local_data,
+  MTAPI_IN mtapi_size_t node_local_data_size,
+  MTAPI_OUT mtapi_status_t* status
+);
+
+
+#ifdef __cplusplus
 }
+#endif
+
+
+#endif // EMBB_MTAPI_C_MTAPI_OPENCL_H_
