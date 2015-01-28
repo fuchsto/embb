@@ -50,11 +50,14 @@ class QueueTest : public partest::TestCase {
    private:
     Queue_t * q;
     int n_producers;
-    ::std::vector<char> consumer_tally;
+    ::std::vector<unsigned char> consumer_tally;
+    ::std::vector<int> sequence_number;
    public:
     Consumer(Queue_t * const queue, int numProducers);
     void Run();
-    ::std::vector<int> sequence_number;
+    const ::std::vector<unsigned char> & Tally() const {
+      return consumer_tally;
+    }
   };
   class Producer {
    private:

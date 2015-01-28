@@ -38,7 +38,6 @@ QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::QueueTest() :
   n_threads(static_cast<int>(partest::TestSuite::GetDefaultNumThreads())),
   n_producers(1),
   n_consumers(1),
-// n_iterations(200),
   next_producer_id(0),
   next_consumer_id(0) {
   CreateUnit("QueueTestSingleThreadEnqueueDequeue").
@@ -61,29 +60,21 @@ QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::QueueTest() :
     // MP/MC
     n_producers = n_threads / 2;
     n_consumers = n_threads / 2;
-  } 
-  else if (MultipleProducers == true) {
-    // MP/SC
-    n_producers = n_threads - 1;
-  }
-  else if (MultipleConsumers == true) {
-    // SP/MC
-    n_consumers = n_threads - 1;
-  }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-  CreateUnit("QueueTestOrderMultipleProducerMultipleConsumer").
-  Pre(&QueueTest::QueueTestOrderMPMC_Pre, this).
-  Add(&QueueTest::QueueTestOrderMPMC_ConsumerThreadMethod,
-    this,
-    static_cast<size_t>(n_consumers),
-    static_cast<size_t>(1)).
-  Add(&QueueTest::QueueTestOrderMPMC_ProducerThreadMethod,
-    this,
-    static_cast<size_t>(n_producers),
-    static_cast<size_t>(1)).
-  Post(&QueueTest::QueueTestOrderMPMC_Post, this);
+    CreateUnit("QueueTestOrderMultipleProducerMultipleConsumer").
+      Pre(&QueueTest::QueueTestOrderMPMC_Pre, this).
+      Add(&QueueTest::QueueTestOrderMPMC_ConsumerThreadMethod,
+      this,
+      static_cast<size_t>(n_consumers),
+      static_cast<size_t>(1)).
+      Add(&QueueTest::QueueTestOrderMPMC_ProducerThreadMethod,
+      this,
+      static_cast<size_t>(n_producers),
+      static_cast<size_t>(1)).
+      Post(&QueueTest::QueueTestOrderMPMC_Post, this);
+  }
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
@@ -107,6 +98,28 @@ template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 void QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::
 QueueTestOrderMPMC_Post() {
   delete queue;
+  // Tally for all elements enqueued by all producers, 
+  // initialized with all 0: 
+  ::std::vector<unsigned char> total_tally;
+  size_t n_elements_total = static_cast<size_t>(n_producers * QUEUE_SIZE);
+  for (size_t i = 0; i < n_elements_total / 8; ++i) {
+    total_tally.push_back(0);
+  }
+  // Collect all dequeued element flags from consumers:
+  for (size_t c = 0; c < static_cast<size_t>(n_consumers); ++c) {
+    for (size_t e = 0; e < n_elements_total / 8; ++e) {
+      total_tally[e] |= consumers[c].Tally()[e];
+    }
+  }
+  // Test if all elements have been dequeued by any 
+  // consumer. 
+  // To avoid static cast warning:
+  for (size_t t = 0; 
+       t < static_cast<size_t>(n_producers * QUEUE_SIZE / 8); 
+       ++t) {
+    PT_ASSERT_EQ_MSG(total_tally[t], 0xff,
+      "missing dequeued elements");
+  }
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
@@ -180,11 +193,11 @@ Run() {
     const size_t pos((producerId * QUEUE_SIZE) +
       static_cast<size_t>(element.second));
     // Test dequeued element's position flag: tally[pos] == 1
-    PT_ASSERT_EQ_MSG(consumer_tally[pos / 8] & ((0x80 >> pos) % 8), 0,
+    PT_ASSERT_EQ_MSG(consumer_tally[pos / 8] & (0x80 >> (pos % 8)), 0,
       "Element dequeued twice");
     // Set flag at dequeued element's position:
     // tally[pos] = 1
-    consumer_tally[pos / 8] |= ((0x80 >> pos) % 8);
+    consumer_tally[pos / 8] |= (0x80 >> (pos % 8));
   }
 }
 
