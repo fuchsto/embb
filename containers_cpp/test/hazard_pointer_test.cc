@@ -38,6 +38,9 @@ HazardPointerTest::HazardPointerTest() :
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
+  object_pool(NULL),
+  stack(NULL),
+  hp(NULL),
 n_threads(static_cast<int>
   (partest::TestSuite::GetDefaultNumThreads())) {
   n_elements_per_thread = 100;
@@ -57,7 +60,8 @@ n_threads(static_cast<int>
     Pre(&HazardPointerTest::HazardPointerTest1_Pre, this).
     Add(
     &HazardPointerTest::HazardPointerTest1_ThreadMethod,
-    this, static_cast<size_t>(n_threads));
+    this, static_cast<size_t>(n_threads)).
+    Post(&HazardPointerTest::HazardPointerTest1_Post, this);
 }
 
 void HazardPointerTest::HazardPointerTest1_Pre() {
@@ -70,6 +74,12 @@ void HazardPointerTest::HazardPointerTest1_Pre() {
     (delete_pointer_callback,
     NULL,
     1);
+}
+
+void HazardPointerTest::HazardPointerTest1_Post() {
+  delete object_pool;
+  delete stack;
+  delete hp;
 }
 
 void HazardPointerTest::HazardPointerTest1_ThreadMethod() {
