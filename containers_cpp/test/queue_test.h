@@ -91,8 +91,6 @@ class QueueTest : public partest::TestCase {
   int n_consumers;
   embb::base::Atomic<size_t> next_producer_id;
   embb::base::Atomic<size_t> next_consumer_id;
-// int n_queue_elements_per_thread;
-// int n_queue_elements;
   /// Number of elements enqueued by every producer, depending
   /// on number of iterations for regression tests.
   int n_producer_elements;
