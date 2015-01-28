@@ -36,9 +36,11 @@ namespace test {
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::QueueTest() :
   n_threads(static_cast<int>(partest::TestSuite::GetDefaultNumThreads())),
-  n_iterations(200),
-  next_consumer_id(0), 
-  next_producer_id(0) {
+  n_producers(1),
+  n_consumers(1),
+// n_iterations(200),
+  next_producer_id(0),
+  next_consumer_id(0) {
   CreateUnit("QueueTestSingleThreadEnqueueDequeue").
   Pre(&QueueTest::QueueTestSingleThreadEnqueueDequeue_Pre, this).
   Add(&QueueTest::QueueTestSingleThreadEnqueueDequeue_ThreadMethod, this).
@@ -56,21 +58,32 @@ QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::QueueTest() :
 #pragma warning(disable:4127)
 #endif
   if (MultipleProducers == true && MultipleConsumers == true) {
+    // MP/MC
+    n_producers = n_threads / 2;
+    n_consumers = n_threads / 2;
+  } 
+  else if (MultipleProducers == true) {
+    // MP/SC
+    n_producers = n_threads - 1;
+  }
+  else if (MultipleConsumers == true) {
+    // SP/MC
+    n_consumers = n_threads - 1;
+  }
 #ifdef _MSC_VER
 #pragma warning(pop)
 #endif
-    CreateUnit("QueueTestOrderMultipleProducerMultipleConsumer").
-    Pre(&QueueTest::QueueTestOrderMPMC_Pre, this).
-    Add(&QueueTest::QueueTestOrderMPMC_ConsumerThreadMethod,
-      this,
-      static_cast<size_t>(PRODUCER_CONSUMER_THREADS / 2),
-      static_cast<size_t>(1)).
-    Add(&QueueTest::QueueTestOrderMPMC_ProducerThreadMethod,
-      this,
-      static_cast<size_t>(PRODUCER_CONSUMER_THREADS / 2),
-      static_cast<size_t>(1)).
-    Post(&QueueTest::QueueTestOrderMPMC_Post, this);
-  }
+  CreateUnit("QueueTestOrderMultipleProducerMultipleConsumer").
+  Pre(&QueueTest::QueueTestOrderMPMC_Pre, this).
+  Add(&QueueTest::QueueTestOrderMPMC_ConsumerThreadMethod,
+    this,
+    static_cast<size_t>(n_consumers),
+    static_cast<size_t>(1)).
+  Add(&QueueTest::QueueTestOrderMPMC_ProducerThreadMethod,
+    this,
+    static_cast<size_t>(n_producers),
+    static_cast<size_t>(1)).
+  Post(&QueueTest::QueueTestOrderMPMC_Post, this);
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
@@ -82,9 +95,11 @@ QueueTestOrderMPMC_Pre() {
   next_consumer_id = 0;
   consumers.clear();
   producers.clear();
-  for (size_t i = 0; i < PRODUCER_CONSUMER_THREADS / 2; ++i) {
-    consumers.push_back(Consumer(queue));
-    producers.push_back(Producer(queue, i));
+  for (size_t p = 0; p < static_cast<size_t>(n_producers); ++p) {
+    producers.push_back(Producer(queue, p));
+  }
+  for (size_t c = 0; c < static_cast<size_t>(n_consumers); ++c) {
+    consumers.push_back(Consumer(queue, n_producers));
   }
 }
 
@@ -97,40 +112,46 @@ QueueTestOrderMPMC_Post() {
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 void QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::
 QueueTestOrderMPMC_ProducerThreadMethod() {
-  size_t p_id = next_producer_id.Load(); 
-  next_producer_id.FetchAndAdd(1);
+  size_t p_id = next_producer_id.FetchAndAdd(1);
   producers[p_id].Run();
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 void QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::
 QueueTestOrderMPMC_ConsumerThreadMethod() {
-  size_t c_id = next_consumer_id.Load();
-  next_consumer_id.FetchAndAdd(1);
+  size_t c_id = next_consumer_id.FetchAndAdd(1);
   consumers[c_id].Run();
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 void QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::Producer::
 Run() {
-  for (int i = 0; i < QUEUE_SIZE;) {    
-    if (!q->TryEnqueue(element_t(producer_id, i))) {
-      continue;
-    }
-    else {
-      ++i;
+  // Enqueue pairs of (producer id, counter): 
+  for (int i = 0; i < QUEUE_SIZE; ++i) {    
+    while (!q->TryEnqueue(element_t(producer_id, i))) {
+      embb::base::Thread::CurrentYield();
     }
   }
   // Enqueue -1 as terminator element of this procuder: 
-  q->TryEnqueue(element_t(producer_id, -1));
+  while (!q->TryEnqueue(element_t(producer_id, -1))) {
+    embb::base::Thread::CurrentYield();
+  }
 }
 
 template<typename Queue_t, bool MultipleProducers, bool MultipleConsumers>
 QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::Consumer::
-Consumer(Queue_t * const queue) :
-  q(queue) {
-  for (int i = 0; i < PRODUCER_CONSUMER_THREADS; ++i) {
-    sequenceNumber[i] = -1;
+Consumer(Queue_t * const queue, int numProducers) :
+  q(queue), 
+  n_producers(numProducers) {
+  for (int p_id = 0; p_id < n_producers; ++p_id) {
+    // Initialize last value dequeued from producers with
+    // below-minimum value:
+    sequence_number.push_back(-1);
+    // Initialize element tally for producer with all 0, 
+    // 8 flags / char:
+    for (int i = 0; i < QUEUE_SIZE / 8; ++i) {
+      consumer_tally.push_back(0);
+    }
   }
 }
 
@@ -139,6 +160,7 @@ void QueueTest<Queue_t, MultipleProducers, MultipleConsumers>::Consumer::
 Run() {
   element_t element;
   size_t producerId;
+  // To avoid compiler warning
   bool forever = true;
   while (forever) {
     if (!q->TryDequeue(element)) {
@@ -149,18 +171,20 @@ Run() {
     }
     producerId = element.first;
     // Assert on dequeued element:
-    PT_ASSERT_LT_MSG(producerId, PRODUCER_CONSUMER_THREADS,
+    PT_ASSERT_LT_MSG(producerId, static_cast<size_t>(n_producers),
       "Invalid producer id in dequeue");    
-    PT_ASSERT_LT_MSG(sequenceNumber[producerId], element.second,
+    PT_ASSERT_LT_MSG(sequence_number[producerId], element.second,
       "Invalid element sequence");    
     // Store last value received from the element's producer:
-    sequenceNumber[producerId] = element.second;
+    sequence_number[producerId] = element.second;
     const size_t pos((producerId * QUEUE_SIZE) +
       static_cast<size_t>(element.second));
-    PT_ASSERT_MSG(!consumer_tally.test(pos),
+    // Test dequeued element's position flag: tally[pos] == 1
+    PT_ASSERT_EQ_MSG(consumer_tally[pos / 8] & ((0x80 >> pos) % 8), 0,
       "Element dequeued twice");
-    // Set bit at dequeued element's position:
-    consumer_tally.set(static_cast<unsigned int>(pos));
+    // Set flag at dequeued element's position:
+    // tally[pos] = 1
+    consumer_tally[pos / 8] |= ((0x80 >> pos) % 8);
   }
 }
 

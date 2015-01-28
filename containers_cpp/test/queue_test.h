@@ -28,7 +28,6 @@
 #define CONTAINERS_CPP_TEST_QUEUE_TEST_H_
 
 #include <vector>
-#include <bitset>
 #include <utility>
 #include <partest/partest.h>
 #include <embb/base/duration.h>
@@ -45,18 +44,17 @@ class QueueTest : public partest::TestCase {
  private:
   static const int QUEUE_SIZE = 1024;
   static const int TOTAL_PRODUCE_CONSUME_COUNT = 10000;
-  static const size_t PRODUCER_CONSUMER_THREADS = 10;
 
  private:
   class Consumer {
    private:
     Queue_t * q;
-    ::std::bitset<QUEUE_SIZE * PRODUCER_CONSUMER_THREADS>
-      consumer_tally;
+    int n_producers;
+    ::std::vector<char> consumer_tally;
    public:
-    Consumer(Queue_t * const queue);
+    Consumer(Queue_t * const queue, int numProducers);
     void Run();
-    int sequenceNumber[PRODUCER_CONSUMER_THREADS];
+    ::std::vector<int> sequence_number;
   };
   class Producer {
    private:
@@ -78,11 +76,12 @@ class QueueTest : public partest::TestCase {
   ::std::vector<Producer> producers;
 
   // for multiple p/c
-  int n_iterations;
-  int n_queue_elements_per_thread;
-  int n_queue_elements;
+  int n_producers;
+  int n_consumers;
   embb::base::Atomic<size_t> next_producer_id;
   embb::base::Atomic<size_t> next_consumer_id;
+  int n_queue_elements_per_thread;
+  int n_queue_elements;
 
   int consume_count;
   Queue_t* queue;
