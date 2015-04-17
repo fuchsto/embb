@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -40,16 +40,16 @@ typedef std::vector<int>::const_iterator constVectorIterator;
 
 struct DotProductFunctor {
   template<typename TypeA, typename TypeB>
-  int operator()(embb::algorithms::ZipPair<TypeA, TypeB> pair) {
+  int operator()(embb::algorithms::ZipPair<TypeA, TypeB> pair) const {
     return pair.First() * pair.Second();
   }
 
   template<typename TypeA, typename TypeB>
-  int operator()(int lhs, embb::algorithms::ZipPair<TypeA, TypeB> rhs) {
+  int operator()(int lhs, embb::algorithms::ZipPair<TypeA, TypeB> rhs) const {
     return lhs + rhs.First() * rhs.Second();
   }
 
-  int operator()(int lhs, int rhs) {
+  int operator()(int lhs, int rhs) const {
     return lhs + rhs;
   }
 };
@@ -59,7 +59,7 @@ struct DotProductFunctor {
  * The result overwrites the original number.
  */
 struct Square {
-  void operator()(embb::algorithms::ZipPair<int &, int &> pair) {
+  void operator()(embb::algorithms::ZipPair<int &, int &> pair) const {
     pair.First() = pair.First() * pair.First();
     pair.Second() = pair.Second() * pair.Second();
   }
@@ -110,14 +110,14 @@ void ZipIteratorTest::TestZipReduce() {
     sum += static_cast<long>((i + 2) * (i + 2));
   }
 
-  std::vector<int>::const_iterator iterA;
-  std::vector<int>::const_iterator iterB;
   embb::algorithms::ZipIterator<constVectorIterator, constVectorIterator>
-  start_iterator = embb::algorithms::Zip(iterA = vectorA.begin(),
-     iterB = vectorB.begin());
+  start_iterator = embb::algorithms::Zip(
+    std::vector<int>::const_iterator(vectorA.begin()),
+    std::vector<int>::const_iterator(vectorB.begin()));
   embb::algorithms::ZipIterator<constVectorIterator, constVectorIterator>
-  end_iterator = embb::algorithms::Zip(iterA = vectorA.end(),
-     iterB = vectorB.end());
+  end_iterator = embb::algorithms::Zip(
+    std::vector<int>::const_iterator(vectorA.end()),
+    std::vector<int>::const_iterator(vectorB.end()));
 
   PT_EXPECT_EQ(embb::algorithms::Reduce(start_iterator, end_iterator, 0,
       std::plus<int>(), DotProductFunctor()), sum);
@@ -136,7 +136,7 @@ void ZipIteratorTest::TestZipScan() {
   Scan(embb::algorithms::Zip(vectorA.begin(), vectorB.begin()),
        embb::algorithms::Zip(vectorA.end(), vectorB.end()),
        vectorOut.begin(), 0, std::plus<int>(), DotProductFunctor(),
-       embb::algorithms::ExecutionPolicy(), 0);
+       embb::tasks::ExecutionPolicy(), 0);
 
   long sum = 0;
   for (size_t i = 0; i < kCountSize; i++) {
@@ -189,7 +189,7 @@ void ZipIteratorTest::TestIteratorTypes() {
 struct MultiDotProductFunctor{
   mtapi_int64_t operator()(
       embb::algorithms::ZipPair<embb::algorithms::ZipPair<int&, int&>,
-      embb::algorithms::ZipPair<int&, int&> > rhs ) {
+      embb::algorithms::ZipPair<int&, int&> > rhs) const {
     return rhs.First().First() * rhs.First().Second() *
            rhs.Second().First() * rhs.Second().Second();
   }

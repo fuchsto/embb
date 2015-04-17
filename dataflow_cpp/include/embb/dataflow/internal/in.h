@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -38,6 +38,8 @@
 namespace embb {
 namespace dataflow {
 namespace internal {
+
+class Scheduler;
 
 template <typename, int>
 class Out;
@@ -94,6 +96,10 @@ class In {
     history_.push_back(value);
     lock_.Unlock();
 #endif
+  }
+
+  void ReceiveInit(InitData * init_data) {
+    listener_->OnInit(init_data);
   }
 };
 

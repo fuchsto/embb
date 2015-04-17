@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,7 +51,9 @@ class Sink< Slices, Inputs<Slices, I1, I2, I3, I4, I5> >
 
   explicit Sink(FunctionType function)
     : executor_(function) {
-    input_clock_expected_ = 0;
+    next_clock_ = 0;
+    queued_clock_ = 0;
+    queue_id_ = GetNextProcessID();
     inputs_.SetListener(this);
   }
 
@@ -64,17 +66,16 @@ class Sink< Slices, Inputs<Slices, I1, I2, I3, I4, I5> >
   }
 
   virtual void Run(int clock) {
-    //const int idx = clock % Slices;
-
-    // force ordering
-    while (input_clock_expected_ != clock) embb::base::Thread::CurrentYield();
-
     if (inputs_.AreNoneBlank(clock)) {
       executor_.Execute(clock, inputs_);
     }
     listener_->OnClock(clock);
+  }
 
-    input_clock_expected_ = clock + 1;
+  virtual void Init(InitData * init_data) {
+    SetListener(init_data->sink_listener);
+    SetScheduler(init_data->sched);
+    listener_->OnInit(init_data);
   }
 
   InputsType & GetInputs() {
@@ -87,27 +88,51 @@ class Sink< Slices, Inputs<Slices, I1, I2, I3, I4, I5> >
   }
 
   virtual void OnClock(int clock) {
-    lock_.Lock();
-    TrySpawn(clock);
-    lock_.Unlock();
+    if (!inputs_.AreAtClock(clock)) {
+      EMBB_THROW(embb::base::ErrorException,
+        "Some inputs are not at expected clock.")
+    }
+
+    bool retry = true;
+    while (retry) {
+      int clk = next_clock_;
+      int clk_end = clk + Slices;
+      int clk_res = clk;
+      for (int ii = clk; ii < clk_end; ii++) {
+        if (!inputs_.AreAtClock(ii)) {
+          break;
+        }
+        clk_res++;
+      }
+      if (clk_res > clk) {
+        if (next_clock_.CompareAndSwap(clk, clk_res)) {
+          while (queued_clock_.Load() < clk) continue;
+          for (int ii = clk; ii < clk_res; ii++) {
+            const int idx = ii % Slices;
+            action_[idx] = Action(this, ii);
+            sched_->Enqueue(queue_id_, action_[idx]);
+          }
+          queued_clock_.Store(clk_res);
+          retry = false;
+        }
+      } else {
+        retry = false;
+      }
+    }
+  }
+
+  virtual void OnInit(InitData * init_data) {
+    Init(init_data);
   }
 
  private:
   InputsType inputs_;
   ExecutorType executor_;
-  embb::base::Atomic<int> input_clock_expected_;
   Action action_[Slices];
   ClockListener * listener_;
-  SpinLock lock_;
-
-  void TrySpawn(int clock) {
-    const int idx = clock % Slices;
-    if (!inputs_.AreAtClock(clock))
-      EMBB_THROW(embb::base::ErrorException,
-        "Some inputs are not at expected clock.")
-    action_[idx] = Action(this, clock);
-    sched_->Spawn(action_[idx]);
-  }
+  embb::base::Atomic<int> next_clock_;
+  embb::base::Atomic<int> queued_clock_;
+  int queue_id_;
 };
 
 } // namespace internal

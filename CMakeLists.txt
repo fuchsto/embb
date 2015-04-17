@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Siemens AG. All rights reserved.
+# Copyright (c) 2014-2015, Siemens AG. All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -27,8 +27,39 @@ cmake_minimum_required (VERSION 2.8.7)
 
 # Version number
 set (EMBB_BASE_VERSION_MAJOR 0)
-set (EMBB_BASE_VERSION_MINOR 2)
-set (EMBB_BASE_VERSION_PATCH 1)
+set (EMBB_BASE_VERSION_MINOR 3)
+set (EMBB_BASE_VERSION_PATCH 0)
+
+# Fix compilation for CMake versions >= 3.1
+#
+# New Policy 0054:
+# CMake 3.1 and above no longer implicitly dereference variables
+# or interpret keywords in an if() command argument when it is a
+# Quoted Argument.
+# See http://www.cmake.org/cmake/help/v3.1/policy/CMP0054.html
+#
+# New Policy 0053:
+# CMake 3.1 introduced faster implementation of evaluation of the
+# Variable References and Escape Sequences. This breaks compilation
+# here.
+# See http://www.cmake.org/cmake/help/v3.1/policy/CMP0053.html
+#
+# Set those policies to be treated the legacy (CMake < 3.1) way.
+if(POLICY CMP0054)
+  cmake_policy(SET CMP0054 OLD)
+endif(POLICY CMP0054)
+
+if(POLICY CMP0053)
+  cmake_policy(SET CMP0053 OLD)
+endif(POLICY CMP0053)
+
+
+include(CMakeCommon/FindOpenCL.cmake)
+IF(NOT OpenCL_FOUND)
+  MESSAGE( STATUS "OpenCL is not there, will build without MTAPI OpenCL Plugin." )
+ENDIF()
+
+
 
 if(NOT CMAKE_BUILD_TYPE)
 set(CMAKE_BUILD_TYPE "Release" CACHE STRING
@@ -56,6 +87,8 @@ option(USE_EXCEPTIONS "Specify whether exceptions should be activated in C++" ON
 option(INSTALL_DOCS "Specify whether Doxygen docs should be installed" ON)
 option(WARNINGS_ARE_ERRORS "Specify whether warnings should be treated as errors" OFF)
 option(USE_PERFORMANCE_API "Specify whether performance counters from PAPI shall be used" OFF)
+option(USE_AUTOMATIC_INITIALIZATION "Specify whether the MTAPI C++ interface, algorithms and dataflow should automatically intialize the MTAPI node if no explicit initialization is present" ON)
+>>>>>>> development
 
 ## LOCAL INSTALLATION OF SUBPROJECT BINARIES
 #
@@ -94,8 +127,26 @@ else()
 endif()
 message("   (set with command line option -DUSE_EXCEPTIONS=ON/OFF)")
 
+# these are the test executables, we expect to be generated.
+set(EXPECTED_EMBB_TEST_EXECUTABLES "embb_algorithms_cpp_test"
+                "embb_base_c_test"
+                "embb_base_cpp_test"
+                "embb_containers_cpp_test"
+                "embb_dataflow_cpp_test"
+                "embb_mtapi_c_test"
+                "embb_mtapi_cpp_test"
+                "embb_mtapi_network_c_test"
+                "embb_tasks_cpp_test"
+                )
+
+# if opencl is there, we also expect the mtapi opencl test to be generated
+if(OpenCL_FOUND)
+  list(APPEND EXPECTED_EMBB_TEST_EXECUTABLES "embb_mtapi_opencl_c_test")
+endif()
+
+
 ## Copy test execution script to local binaries folder
-#
+
 if (DEFINED CYGWIN)
   set(test_script_in run_tests_cygwin.sh)
   set(test_script_out run_tests.sh)
@@ -106,9 +157,7 @@ else()
   set(test_script_in run_tests_windows.bat)
   set(test_script_out run_tests.bat)
 endif()
-execute_process(
-  COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/scripts/${test_script_in} binaries/${test_script_out}
-  )
+CONFIGURE_FILE( ${CMAKE_SOURCE_DIR}/scripts/${test_script_in}.cmake binaries/${test_script_out} )
 
 ## Test and Partest build
 #
@@ -147,7 +196,10 @@ add_subdirectory(base_c)
 add_subdirectory(base_cpp)
 add_subdirectory(mtapi_c)
 add_subdirectory(mtapi_network_c)
-add_subdirectory(mtapi_opencl_c)
+if(OpenCL_FOUND)
+  add_subdirectory(mtapi_opencl_c)
+endif()
+add_subdirectory(tasks_cpp)
 add_subdirectory(mtapi_cpp)
 add_subdirectory(containers_cpp)
 add_subdirectory(algorithms_cpp)

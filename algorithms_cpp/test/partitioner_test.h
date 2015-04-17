@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,13 @@ class PartitionerTest : public partest::TestCase {
 
  private:
   void TestBasic();
+
+  void TestLargeRangePre();
+  void TestLargeRangePost();
+  void TestLargeRange();
+
+  int * partitioned_array_;
+  size_t partitioned_array_size_;
 };
 
 #endif  // ALGORITHMS_CPP_TEST_PARTITIONER_TEST_H_

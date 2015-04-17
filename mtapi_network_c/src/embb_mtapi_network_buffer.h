@@ -24,8 +24,8 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
-#define MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
+#ifndef MTAPI_NETWORK_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
+#define MTAPI_NETWORK_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
 
 #include <stdint.h>
 
@@ -52,6 +52,10 @@ void embb_mtapi_network_buffer_finalize(
   embb_mtapi_network_buffer_t * that
 );
 
+void embb_mtapi_network_buffer_clear(
+  embb_mtapi_network_buffer_t * that
+);
+
 int embb_mtapi_network_buffer_push_back_int8(
   embb_mtapi_network_buffer_t * that,
   int8_t value
@@ -70,7 +74,7 @@ int embb_mtapi_network_buffer_push_back_int32(
 int embb_mtapi_network_buffer_push_back_rawdata(
   embb_mtapi_network_buffer_t * that,
   int32_t size,
-  void * rawdata
+  void const * rawdata
 );
 
 int embb_mtapi_network_buffer_pop_front_int8(
@@ -99,4 +103,4 @@ int embb_mtapi_network_buffer_pop_front_rawdata(
 }
 #endif
 
-#endif // MTAPI_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_
+#endif // MTAPI_NETWORK_C_SRC_EMBB_MTAPI_NETWORK_BUFFER_H_

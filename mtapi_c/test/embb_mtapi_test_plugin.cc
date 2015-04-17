@@ -32,6 +32,7 @@
 
 #include <mtapi_status_t.h>
 
+#include <embb/base/c/memory_allocation.h>
 #include <embb/base/c/thread.h>
 #include <embb/base/c/atomic.h>
 #include <embb/base/c/internal/unused.h>
@@ -47,16 +48,19 @@ int plugin_thread_function(void * args) {
   EMBB_UNUSED(args);
   while (embb_atomic_load_int(&plugin_running)) {
     /* wait for incoming task */
-    while (embb_atomic_load_int(&plugin_running) && !embb_atomic_load_int(&plugin_task_available))
+    while (embb_atomic_load_int(&plugin_running) &&
+      !embb_atomic_load_int(&plugin_task_available))
       embb_thread_yield();
 
     if (embb_atomic_load_int(&plugin_running)) {
       if (embb_mtapi_node_is_initialized()) {
         embb_mtapi_node_t * node = embb_mtapi_node_get_instance();
 
-        if (embb_mtapi_task_pool_is_handle_valid(node->task_pool, plugin_task)) {
+        if (embb_mtapi_task_pool_is_handle_valid(
+          node->task_pool, plugin_task)) {
           embb_mtapi_task_t * local_task =
-            embb_mtapi_task_pool_get_storage_for_handle(node->task_pool, plugin_task);
+            embb_mtapi_task_pool_get_storage_for_handle(
+            node->task_pool, plugin_task);
           embb_mtapi_task_set_state(local_task, MTAPI_TASK_COMPLETED);
         }
       }
@@ -111,7 +115,7 @@ void plugin_task_start(
   MTAPI_IN mtapi_task_hndl_t task,
   MTAPI_OUT mtapi_status_t* status) {
   mtapi_status_t local_status = MTAPI_ERR_UNKNOWN;
-  
+
   if (embb_mtapi_node_is_initialized()) {
     embb_mtapi_node_t * node = embb_mtapi_node_get_instance();
 
@@ -164,13 +168,6 @@ void PluginTest::TestBasic() {
   mtapi_task_hndl_t task;
 
   status = MTAPI_ERR_UNKNOWN;
-  mtapi_ext_register_control_plugin(
-    plugin_initialize,
-    plugin_finalize,
-    &status);
-  MTAPI_CHECK_STATUS(status);
-
-  status = MTAPI_ERR_UNKNOWN;
   mtapi_nodeattr_init(&node_attr, &status);
   MTAPI_CHECK_STATUS(status);
 
@@ -189,6 +186,10 @@ void PluginTest::TestBasic() {
     &node_attr,
     &info,
     &status);
+  MTAPI_CHECK_STATUS(status);
+
+  status = MTAPI_ERR_UNKNOWN;
+  plugin_initialize(THIS_DOMAIN_ID, THIS_NODE_ID, &status);
   MTAPI_CHECK_STATUS(status);
 
   status = MTAPI_ERR_UNKNOWN;
@@ -227,8 +228,14 @@ void PluginTest::TestBasic() {
   MTAPI_CHECK_STATUS(status);
 
   status = MTAPI_ERR_UNKNOWN;
+  plugin_finalize(&status);
+  MTAPI_CHECK_STATUS(status);
+
+  status = MTAPI_ERR_UNKNOWN;
   mtapi_finalize(&status);
   MTAPI_CHECK_STATUS(status);
+
+  PT_EXPECT_EQ(embb_get_bytes_allocated(), 0u);
 
   embb_mtapi_log_info("...done\n\n");
 }

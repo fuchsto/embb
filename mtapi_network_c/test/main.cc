@@ -28,8 +28,10 @@
 
 #include <embb_mtapi_network_test_buffer.h>
 #include <embb_mtapi_network_test_socket.h>
+#include <embb_mtapi_network_test_task.h>
 
 PT_MAIN("MTAPI NETWORK") {
   PT_RUN(NetworkBufferTest);
   PT_RUN(NetworkSocketTest);
+  PT_RUN(NetworkTaskTest);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,7 @@
 
 #include <partest/partest.h>
 
-#include <iostream>
+#include <embb/base/c/thread.h>
 
 #include <mtapi_cpp_test_task.h>
 #include <mtapi_cpp_test_group.h>
@@ -34,6 +34,8 @@
 
 
 PT_MAIN("MTAPI C++") {
+  embb_thread_set_max_count(1024);
+
   PT_RUN(TaskTest);
   PT_RUN(GroupTest);
   PT_RUN(QueueTest);

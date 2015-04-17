@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,9 +25,16 @@
  */
 
 #include <iostream>
+#include <embb/base/c/thread.h>
 
 void RunMTAPI_C();
+void RunMTAPI_C_Plugin();
+void RunMTAPI_C_Network();
+#ifdef EMBB_WITH_OPENCL
+void RunMTAPI_C_OpenCL();
+#endif
 void RunMTAPI_CPP();
+void RunTasks();
 void RunDataflowLinear();
 void RunDataflowNonLinear();
 void RunSTLForEach();
@@ -45,15 +52,35 @@ void RunQueueExamples();
  * Runs all examples and tests their correctness.
  */
 int main() {
+  embb_thread_set_max_count(1024);
+
   std::cout << "Running examples ..." << std::endl;
 
   std::cout << "RunMTAPI_C() ..." << std::endl;
   RunMTAPI_C();
   std::cout << "RunMTAPI_C() ... done" << std::endl;
 
+  std::cout << "RunMTAPI_C_Plugin() ..." << std::endl;
+  RunMTAPI_C_Plugin();
+  std::cout << "RunMTAPI_C_Plugin() ... done" << std::endl;
+
+  std::cout << "RunMTAPI_C_Network() ..." << std::endl;
+  RunMTAPI_C_Network();
+  std::cout << "RunMTAPI_C_Network() ... done" << std::endl;
+
+#ifdef EMBB_WITH_OPENCL
+  std::cout << "RunMTAPI_C_OpenCL() ..." << std::endl;
+  RunMTAPI_C_OpenCL();
+  std::cout << "RunMTAPI_C_OpenCL() ... done" << std::endl;
+#endif
+
   std::cout << "RunMTAPI_CPP() ..." << std::endl;
   RunMTAPI_CPP();
   std::cout << "RunMTAPI_CPP() ... done" << std::endl;
+
+  std::cout << "RunTasks() ..." << std::endl;
+  RunTasks();
+  std::cout << "RunTasks() ... done" << std::endl;
 
   std::cout << "RunDataflowLinear() ..." << std::endl;
   RunDataflowLinear();

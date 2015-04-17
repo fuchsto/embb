@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,20 +35,12 @@
  * \ingroup CPP
  */
 
-#define MTAPI_CPP_TASK_JOB 1
-#define MTAPI_CPP_AUTOMATIC_INITIALIZE 1
-#if MTAPI_CPP_AUTOMATIC_INITIALIZE
-#define MTAPI_CPP_AUTOMATIC_DOMAIN_ID 1
-#define MTAPI_CPP_AUTOMATIC_NODE_ID 1
-#endif
-
+#include <embb/mtapi/job.h>
 #include <embb/mtapi/action.h>
-#include <embb/mtapi/affinity.h>
-#include <embb/mtapi/continuation.h>
 #include <embb/mtapi/group.h>
-#include <embb/mtapi/node.h>
 #include <embb/mtapi/queue.h>
 #include <embb/mtapi/task.h>
-#include <embb/mtapi/taskcontext.h>
+#include <embb/mtapi/task_context.h>
+#include <embb/mtapi/node.h>
 
 #endif // EMBB_MTAPI_MTAPI_H_

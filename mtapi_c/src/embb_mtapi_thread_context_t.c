@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -70,6 +70,7 @@ void embb_mtapi_thread_context_initialize_with_node_worker_and_core(
 
   embb_mutex_init(&that->work_available_mutex, EMBB_MUTEX_PLAIN);
   embb_condition_init(&that->work_available);
+  embb_atomic_store_int(&that->is_sleeping, 0);
 }
 
 mtapi_boolean_t embb_mtapi_thread_context_start(

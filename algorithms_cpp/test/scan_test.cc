@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,7 +35,7 @@
  */
 struct Square {
   template<typename Type>
-  Type operator()(Type& l) {
+  Type operator()(Type& l) const {
     return l * l;
   }
 };
@@ -115,13 +115,9 @@ void ScanTest::TestFunctionPointers() {
   std::vector<int> vector(kCountSize);
   std::vector<int> init(kCountSize);
   std::vector<int> outputVector(kCountSize);
-  int sum = 0;
-  int sqr_sum = 0;
   for (size_t i = 0; i < kCountSize; i++) {
     vector[i] = static_cast<int>(i+2);
     init[i] = 0;
-    sum += static_cast<int>(i + 2);
-    sqr_sum += static_cast<int>((i + 2) * (i + 2));
   }
 
   Scan(vector.begin(), vector.end(), outputVector.begin(), 0, &AddFunction);
@@ -232,7 +228,7 @@ void ScanTest::TestRanges() {
 
 void ScanTest::TestBlockSizes() {
   using embb::algorithms::Scan;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   using embb::algorithms::Identity;
   size_t count = 4;
   std::vector<int> init(count);
@@ -257,7 +253,7 @@ void ScanTest::TestBlockSizes() {
 
 void ScanTest::TestPolicy() {
   using embb::algorithms::Scan;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   using embb::algorithms::Identity;
   size_t count = 4;
   std::vector<int> init(count);
@@ -288,28 +284,48 @@ void ScanTest::TestPolicy() {
 
   outputVector = init;
   Scan(vector.begin(), vector.end(), outputVector.begin(), 0, std::plus<int>(),
-       Identity(), ExecutionPolicy(false));
-  expected = 0;
-  for (size_t i = 0; i < count; i++) {
-    expected += vector[i];
-    PT_EXPECT_EQ(expected, outputVector[i]);
-  }
-
-  outputVector = init;
-  Scan(vector.begin(), vector.end(), outputVector.begin(), 0, std::plus<int>(),
     Identity(), ExecutionPolicy(true, 1));
   expected = 0;
   for (size_t i = 0; i < count; i++) {
     expected += vector[i];
     PT_EXPECT_EQ(expected, outputVector[i]);
   }
+  // Empty list should not throw and not change output:
+  outputVector = init;
+  std::vector<int>::iterator out_it = outputVector.begin();
+  Scan(vector.begin(), vector.begin(), out_it, 0, std::plus<int>());
+  PT_EXPECT(out_it == outputVector.begin());
+
+#ifdef EMBB_USE_EXCEPTIONS
+  bool empty_core_set_thrown = false;
+  try {
+    Scan(vector.begin(), vector.end(), outputVector.begin(),
+         0, std::plus<int>(), Identity(),
+         ExecutionPolicy(false));
+  }
+  catch (embb::base::ErrorException &) {
+    empty_core_set_thrown = true;
+  }
+  PT_EXPECT_MSG(empty_core_set_thrown,
+    "Empty core set should throw ErrorException");
+  bool negative_range_thrown = false;
+  try {
+    std::vector<int>::iterator second = vector.begin() + 1;
+    Scan(second, vector.begin(), outputVector.begin(), 0, std::plus<int>());
+  }
+  catch (embb::base::ErrorException &) {
+    negative_range_thrown = true;
+  }
+  PT_EXPECT_MSG(negative_range_thrown,
+    "Negative range should throw ErrorException");
+#endif
 }
 
 void ScanTest::StressTest() {
   using embb::algorithms::Scan;
   using embb::algorithms::Identity;
-  using embb::algorithms::ExecutionPolicy;
-  size_t count = embb::mtapi::Node::GetInstance().GetCoreCount() *10;
+  using embb::tasks::ExecutionPolicy;
+  size_t count = embb::tasks::Node::GetInstance().GetCoreCount() *10;
   std::vector<int> large_vector(count);
   std::vector<int> large_vector_output(count);
   for (size_t i = 0; i < count; i++) {

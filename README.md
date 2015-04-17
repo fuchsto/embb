@@ -21,10 +21,10 @@ processor cores. It builds on MTAPI, a standardized programming interface for
 leveraging task parallelism in embedded systems containing symmetric or
 asymmetric multicore processors. A core feature of MTAPI is low-overhead
 scheduling of fine-grained tasks among the available cores during runtime.
-Unlike existing libraries, EMB² supports task priorities, which allows the
-creation of soft real-time systems. Additionally, the scheduling strategy can
-be optimized for non-functional requirements such as minimal latency and
-fairness.
+Unlike existing libraries, EMB² supports task priorities and affinities, which
+allows the creation of soft real-time systems. Additionally, the scheduling
+strategy can be optimized for non-functional requirements such as minimal
+latency and fairness.
 
 Besides the task scheduler, EMB² provides basic parallel algorithms, concurrent
 data structures, and skeletons for implementing stream processing applications
@@ -75,7 +75,8 @@ This project is based on the standards C99 (for C code) and C++03 (for C++
 code) to be usable on a wide range of target systems. It has been tested on
 the following OS/compiler/architecture combinations:
 
-  - Linux (Ubuntu 12.10) / GCC 4.8.1 / x86, x86_64
+  - Linux (Ubuntu 12.04) / GCC 4.8.1 / x86, x86_64
+  - Linux (Ubuntu 12.04) / Clang 3.0.0 / x86_64
   - Linux (Ubuntu 14.04) / GCC 4.8.2 / ARMv7
   - Windows
     * MSVC 12.0.21005.1 REL / x86, x86_64
@@ -91,13 +92,14 @@ contact us: embb-dev@googlegroups.com.
 Directory Structure
 -------------------
 
-EMB² is a technology stack consisting of various building blocks. For some of
-them, there exist C and C++ versions, others are only implemented in C++. The
-directory names are postfixed with either "_cpp" or "_c" for  the C++ and C
-versions, respectively. Currently, EMB² contains the following components:
+EMB² consists of various building blocks. For some of them, there exist C and
+C++ versions, others are only implemented in C++. The directory names are
+postfixed with either "_cpp" or "_c" for the C++ and C versions, respectively.
+Currently, EMB² contains the following components:
 
   - base: base_c, base_cpp
-  - mtapi: mtapi_c, mtapi_cpp
+  - mtapi: mtapi_c, mtapi_network_c, mtapi_opencl_c, mtapi_cpp
+  - tasks: tasks_cpp
   - algorithms: algorithms_cpp
   - dataflow: dataflow_cpp
   - containers: containers_cpp
@@ -108,20 +110,22 @@ the header files, source files, and unit tests, respectively.
 Component base_c contains abstractions for threading, synchronization, atomic
 operations, and other functionalities. As the name indicates, the code is
 implemented in C. Component base_cpp is mainly a C++ wrapper around the base_c
-functionalities. Component mtapi_c is a task scheduler written in C and
-mtapi_cpp a C++ wrapper for the scheduler. Component algorithms_cpp provides
-high-level constructs for typical parallelization task in C++, and
-dataflow_cpp generic skeletons for the development of parallel stream-based
-applications. Finally, component containers_cpp provides containers, i.e.,
-data structures for storing object in an organized and thread-safe way.
+functions. Component mtapi_c is a task scheduler written in C and mtapi_cpp a
+C++ wrapper for the scheduler (mtapi_network_c and mtapi_opencl_c are scheduler
+plugins for distributed and OpenCL-based heterogeneous systems, respectively).
+To simplify programming of homogeneous systems, tasks_cpp contains abstractions
+to the MTAPI interfaces. Component algorithms_cpp provides high-level constructs
+for typical parallelization tasks in C++, and dataflow_cpp generic skeletons for
+the development of parallel stream-based applications. Finally, containers_cpp
+provides data structures for storing objects in a thread-safe way.
 
 
 Build and Installation
 ----------------------
 
-Note: It is recommended to build from a packaged release file and not from a
-snapshot of the repository in order to get the documentation and the examples
-out-of-the box.
+Note: It is recommended to build from a release file and not from a repository
+snapshot in order to get the documentation and the examples out-of-the box.
+The release files can be found at https://github.com/siemens/embb/releases.
 
 EMB² is built using CMake (version 2.8.9 or higher). CMake is a build file
 generator which allows to abstract from the concrete build tools. To generate
@@ -135,7 +139,7 @@ assumed that the project's root directory is now the parent directory.
 
 Choose an appropriate build file generator for your system.
 
-  - For Linux, GCC, x86/x86_64/ARM:       "Unix Makefiles"
+  - For Linux, GCC/Clang, x86/x86_64/ARM: "Unix Makefiles"
   - For Windows, MSVC of VS 2013, x86:    "Visual Studio 12"
   - For Windows, MSVC of VS 2013, x86_64: "Visual Studio 12 Win64"
   - For Windows, MSVC of VS 2012, x86:    "Visual Studio 11"
@@ -152,10 +156,29 @@ option -DCMAKE_BUILD_TYPE=[Release|Debug]. If no build mode is given on Linux,
 the default (Release) is used. The Visual Studio generators create build files
 for both modes (the selection is done at build time).
 
+You may choose a custom compiler instead the default one by defining
+CMAKE_CXX_COMPILER and/or CMAKE_C_COMPILER. For example, to use Clang on Linux
+use:
+
+    cmake .. -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_C_COMPILER=clang
+
+In the same way you may cross compile to another platform. For example, to cross
+compile to ARM Linux using GCC, you need to specify the cross compiler itself and
+the target architecture as an argument to the compiler:
+
+    cmake .. -DCMAKE_CXX_COMPILER=arm-linux-gnueabi-gcc++
+             -DCMAKE_CXX_FLAGS=-march=armv7-a
+             -DCMAKE_C_COMPILER=arm-linux-gnueabi-gcc
+             -DCMAKE_C_FLAGS=-march=armv7-a
+
 EMB² can be built with and without C++ exception handling, which has to be
 specified on build file generation. When exceptions are turned off, an error
 message is emitted and the program aborts in case of an exception within EMB².
 To disable exceptions, add the option -DUSE_EXCEPTIONS=OFF.
+
+Similarly, automatic initialization of the task scheduler by the MTAPI C++
+interface can be disabled with -DUSE_AUTOMATIC_INITIALIZATION=OFF. This way,
+unexpected delays after startup can be avoided, e.g. for timing measurements.
 
 The tutorial of EMB² comes with example source files in doc/examples/. These
 can be built with the other source files using CMake option -DBUILD_EXAMPLES=ON
@@ -167,6 +190,10 @@ Now you can generate the build files as shown by the following examples.
 For a Linux Debug build with exception handling, type
 
     cmake -G "Unix Makefiles" .. -DCMAKE_BUILD_TYPE=Debug
+
+For a default Linux build without automatic MTAPI C++ initialization, type
+
+    cmake .. -DUSE_AUTOMATIC_INITIALIZATION=OFF
 
 For a Windows build (VS 2013, x86) without exception handling, type
 
@@ -268,9 +295,13 @@ The C header files can be included as follows:
 Documentation
 -------------
 
-EMB² comes with a tutorial, example programs, and an HTML reference
-documentation describing the APIs, which can be found in the "doc" folder.
-The root document of the HTML reference is "doc/reference/index.html".
+The release files of EMB² come with a tutorial, example programs, and a
+reference manual (HTML) describing the APIs. All documentation is contained in
+the "doc" folder. The root document of the HTML reference is
+"doc/reference/index.html". Note that generated documentation files are not
+under version control and hence not contained in the repository. As mentioned
+above, it is therefore recommended to download one of the packaged release
+files in order to have ready-to-use documentation.
 
 
 Code Quality
@@ -288,8 +319,6 @@ code using Cppcheck, a static analysis tool for C++.
 Known Bugs and Limitations
 --------------------------
 
-- The MTAPI implementation is currently limited to homogeneous systems.
-  Support for heterogeneous systems will be added in the near future.
 - For memory management reasons, the number of threads EMB² can deal with
   is bounded by a predefined but modifiable constant (see functions
   embb_thread_get_max_count() / embb_thread_set_max_count() and class
@@ -302,6 +331,42 @@ Development and Contribution
 The EMB² team welcomes all kinds of contributions, preferably as pull requests
 or patches via the development mailing lists (see above). If possible, please
 refer to a current snapshot of the development branch.
+
+EMB² is supposed to be easily portable to platforms unsupported so far. Almost
+all platform specific code is located in the base_c and base_cpp modules. All
+existing platform specific code is fenced by EMBB_PLATFORM_* defines.
+
+To distinguish between compilers, EMB² currently uses the following defines:
+
+  - EMBB_PLATFORM_COMPILER_GNUC
+  - EMBB_PLATFORM_COMPILER_MSVC
+  - EMBB_PLATFORM_COMPILER_UNKNOWN
+
+Different architectures are distinguished using:
+
+  - EMBB_PLATFORM_ARCH_X86
+  - EMBB_PLATFORM_ARCH_X86_32
+  - EMBB_PLATFORM_ARCH_X86_64
+  - EMBB_PLATFORM_ARCH_ARM
+  - EMBB_PLATFORM_ARCH_UNKNOWN
+
+Threading APIs are switched by:
+
+  - EMBB_PLATFORM_THREADING_WINTHREADS
+  - EMBB_PLATFORM_THREADING_POSIXTHREADS
+
+Please use these defines for new platform specific code. If additional defines
+are needed, they can be defined in the config.h or cmake_config.h.in files.
+
+
+Important Notes
+---------------
+
+- The MTAPI C++ interface supports automatic initialization, which allows for
+  easy usage of the MTAPI C++, Algorithms, and Dataflow components. For
+  performance measurements, explicit initialization is strongly recommended
+  since the measurements will otherwise include the initialization time of
+  MTAPI.
 
 
 Links

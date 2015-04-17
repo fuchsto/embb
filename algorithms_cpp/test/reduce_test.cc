@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,7 @@
 
 #include <reduce_test.h>
 #include <embb/algorithms/reduce.h>
-#include <embb/algorithms/execution_policy.h>
+#include <embb/tasks/execution_policy.h>
 #include <deque>
 #include <vector>
 #include <functional>
@@ -36,7 +36,7 @@
  */
 struct Square {
   template<typename Type>
-  Type operator()(Type& l) {
+  Type operator()(Type& l) const {
     return l * l;
   }
 };
@@ -163,7 +163,7 @@ void ReduceTest::TestBlockSizes() {
 
 void ReduceTest::TestPolicy() {
   using embb::algorithms::Reduce;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   using embb::algorithms::Identity;
   size_t count = 4;
   int sum = 0;
@@ -179,17 +179,40 @@ void ReduceTest::TestPolicy() {
                Identity(), ExecutionPolicy()), sum);
   PT_EXPECT_EQ(Reduce(vector.begin(), vector.end(), 0, std::plus<int>(),
                Identity(), ExecutionPolicy(true)), sum);
-  PT_EXPECT_EQ(Reduce(vector.begin(), vector.end(), 0,
-               std::plus<int>(), Identity(), ExecutionPolicy(false)), sum);
   PT_EXPECT_EQ(Reduce(vector.begin(), vector.end(), 0, std::plus<int>(),
                Identity(), ExecutionPolicy(true, 1)), sum);
+  // Empty list should return neutral element:
+  PT_EXPECT_EQ(Reduce(vector.begin(), vector.begin(), 41, std::plus<int>(),
+               Identity(), ExecutionPolicy(true, 1)), 41);
+#ifdef EMBB_USE_EXCEPTIONS
+  bool empty_core_set_thrown = false;
+  try {
+    Reduce(vector.begin(), vector.end(), 0,
+           std::plus<int>(), Identity(),
+           ExecutionPolicy(false));
+  } catch (embb::base::ErrorException &) {
+    empty_core_set_thrown = true;
+  }
+  PT_EXPECT_MSG(empty_core_set_thrown,
+    "Empty core set should throw ErrorException");
+  bool negative_range_thrown = false;
+  try {
+    std::vector<int>::iterator second = vector.begin() + 1;
+    Reduce(second, vector.begin(), 0, std::plus<int>());
+  }
+  catch (embb::base::ErrorException &) {
+    negative_range_thrown = true;
+  }
+  PT_EXPECT_MSG(negative_range_thrown,
+    "Negative range should throw ErrorException");
+#endif
 }
 
 void ReduceTest::StressTest() {
   using embb::algorithms::Reduce;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   using embb::algorithms::Identity;
-  size_t count = embb::mtapi::Node::GetInstance().GetCoreCount() *10;
+  size_t count = embb::tasks::Node::GetInstance().GetCoreCount() * 10;
   std::vector<int> large_vector(count);
   mtapi_int32_t expected = 0;
   for (size_t i = 0; i < count; i++) {

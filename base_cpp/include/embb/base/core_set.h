@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -184,6 +184,13 @@ class CoreSet {
     /** [IN] Core set on right-hand side of union operation */
     );
 
+  /**
+   * Provides access to internal representation to use it with C API.
+   *
+   * \return A reference to the internal embb_core_set_t structure.
+   */
+  embb_core_set_t const & GetInternal() const { return rep_; }
+
  private:
   /**
    * Internal representation of core set.
@@ -201,4 +208,4 @@ class CoreSet {
 
 
 
-#endif /* EMBB_BASE_CORE_SET_H_ */
+#endif  // EMBB_BASE_CORE_SET_H_

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -46,6 +46,9 @@ namespace base {
  * Represents a relative time duration for a given tick type.
  *
  * \notthreadsafe
+ * \note The typedefs DurationSeconds, DurationMilliseconds,
+ *       DurationMicroseconds, and DurationNanoseconds provide directly usable
+ *       duration types.
  * \tparam Tick Possible tick types are Seconds, Milliseconds, Microseconds,
  *              Nanoseconds
  * \ingroup CPP_BASE_TIMEDURATION
@@ -270,6 +273,8 @@ Duration<Tick> operator+(
   ) {
   return Duration<Tick>(lhs.Count() + rhs.Count());
 }
+
+namespace internal {
 
 /**
  * Base class for ticks.
@@ -517,9 +522,36 @@ class Nanoseconds : public Tick {
   static unsigned long long Max();
 };
 
+} // namespace internal
+
+/**
+ * Duration with seconds tick.
+ *
+ * \ingroup CPP_BASE_TIMEDURATION
+ */
+typedef Duration<internal::Seconds> DurationSeconds;
+/**
+ * Duration with milliseconds tick.
+ *
+ * \ingroup CPP_BASE_TIMEDURATION
+ */
+typedef Duration<internal::Milliseconds> DurationMilliseconds;
+/**
+ * Duration with microseconds tick.
+ *
+ * \ingroup CPP_BASE_TIMEDURATION
+ */
+typedef Duration<internal::Microseconds> DurationMicroseconds;
+/**
+ * Duration with nanoseconds tick.
+ *
+ * \ingroup CPP_BASE_TIMEDURATION
+ */
+typedef Duration<internal::Nanoseconds> DurationNanoseconds;
+
 } // namespace base
 } // namespace embb
 
 #include <embb/base/internal/duration-inl.h>
 
-#endif /* EMBB_BASE_DURATION_H_ */
+#endif  // EMBB_BASE_DURATION_H_

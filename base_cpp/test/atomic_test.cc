@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -346,8 +346,6 @@ void AtomicTest::BasicTests() {
   //Boolean operations...
   // And
   i = 0;
-  i &= 0;
-  PT_EXPECT(i == 0);
   i &= 1;
   PT_EXPECT(i == 0);
   i = 1;

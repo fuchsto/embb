@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -36,22 +36,30 @@
 
 namespace embb {
 namespace containers {
-template<typename T, class Allocator>
-WaitFreeSPSCQueue<T, Allocator>::WaitFreeSPSCQueue(size_t capacity) :
-capacity(capacity),
-  head_index(0),
-  tail_index(0) {
-  queue_array = allocator.allocate(capacity);
+template<typename Type, class Allocator>
+size_t WaitFreeSPSCQueue<Type, Allocator>::
+AlignCapacityToPowerOfTwo(size_t capacity) {
+  size_t result = 1;
+  while (result < capacity) result <<= 1;
+  return result;
 }
 
-template<typename T, class Allocator>
-size_t WaitFreeSPSCQueue<T, Allocator>::GetCapacity() {
+template<typename Type, class Allocator>
+WaitFreeSPSCQueue<Type, Allocator>::WaitFreeSPSCQueue(size_t capacity)
+    : capacity(AlignCapacityToPowerOfTwo(capacity)),
+      head_index(0),
+      tail_index(0) {
+  queue_array = allocator.allocate(this->capacity);
+}
+
+template<typename Type, class Allocator>
+size_t WaitFreeSPSCQueue<Type, Allocator>::GetCapacity() {
   return capacity;
 }
 
-template<typename T, class Allocator>
-bool WaitFreeSPSCQueue<T, Allocator>::TryEnqueue(T const & element) {
-  if (head_index - tail_index == capacity)
+template<typename Type, class Allocator>
+bool WaitFreeSPSCQueue<Type, Allocator>::TryEnqueue(Type const & element) {
+  if (tail_index - head_index == capacity)
     return false;
 
   queue_array[tail_index % capacity] = element;
@@ -59,19 +67,19 @@ bool WaitFreeSPSCQueue<T, Allocator>::TryEnqueue(T const & element) {
   return true;
 }
 
-template<typename T, class Allocator>
-bool WaitFreeSPSCQueue<T, Allocator>::TryDequeue(T & element) {
+template<typename Type, class Allocator>
+bool WaitFreeSPSCQueue<Type, Allocator>::TryDequeue(Type & element) {
   if (tail_index - head_index == 0)
     return false;
 
-  T x = queue_array[head_index % capacity];
+  Type x = queue_array[head_index % capacity];
   this->head_index++;
   element = x;
   return true;
 }
 
-template<typename T, class Allocator>
-WaitFreeSPSCQueue<T, Allocator>::~WaitFreeSPSCQueue() {
+template<typename Type, class Allocator>
+WaitFreeSPSCQueue<Type, Allocator>::~WaitFreeSPSCQueue() {
   allocator.deallocate(queue_array, capacity);
 }
 } // namespace containers
