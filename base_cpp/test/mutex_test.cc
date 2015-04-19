@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -93,10 +93,10 @@ void MutexTest::PostLockGuardCount() {
 }
 
 void MutexTest::TestUniqueLock() {
-#ifdef EMBB_USE_EXCEPTIONS
-  bool exception_thrown = false;
-#endif
   { // Test standard usage and releasing
+#ifdef EMBB_USE_EXCEPTIONS
+    bool exception_thrown = false;
+#endif
     UniqueLock<Mutex> lock(mutex_);
     PT_EXPECT_EQ(lock.OwnsLock(), true);
 

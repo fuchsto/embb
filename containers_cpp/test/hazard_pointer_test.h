@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -59,6 +59,7 @@ class HazardPointerTest : public partest::TestCase {
   */
   HazardPointerTest();
   void HazardPointerTest1_Pre();
+  void HazardPointerTest1_Post();
   void HazardPointerTest1_ThreadMethod();
   void DeletePointerCallback(embb::base::Atomic<int>* to_delete);
 };

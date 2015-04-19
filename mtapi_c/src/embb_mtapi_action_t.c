@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,12 +56,13 @@ void embb_mtapi_action_initialize(embb_mtapi_action_t* that) {
   that->enabled = MTAPI_FALSE;
   that->node_local_data = NULL;
   that->node_local_data_size = 0;
+  that->plugin_data = MTAPI_NULL;
   embb_atomic_store_int(&that->num_tasks, 0);
 }
 
 void embb_mtapi_action_finalize(embb_mtapi_action_t* that) {
   if (that->is_plugin_action) {
-    // TODO: check status
+    // TODO(mw): check status
     that->plugin_action_finalize_function(that->handle, NULL);
   }
   embb_mtapi_action_initialize(that);
@@ -419,6 +420,7 @@ void mtapi_action_enable(
         embb_mtapi_action_pool_get_storage_for_handle(
           node->action_pool, action);
       local_action->enabled = MTAPI_TRUE;
+      local_status = MTAPI_SUCCESS;
     } else {
       local_status = MTAPI_ERR_ACTION_INVALID;
     }

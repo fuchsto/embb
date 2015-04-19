@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,8 +28,9 @@
 #define EMBB_DATAFLOW_INTERNAL_NODE_H_
 
 #include <cstddef>
-
+#include <embb/base/exceptions.h>
 #include <embb/dataflow/internal/scheduler.h>
+#include <embb/dataflow/internal/clock_listener.h>
 
 namespace embb {
 namespace dataflow {
@@ -46,10 +47,14 @@ class Node {
     EMBB_THROW(embb::base::ErrorException,
       "Nodes are started implicitly.");
   }
-  void SetScheduler(Scheduler * sched) { sched_ = sched; }
+  virtual void Init(InitData * init_data) = 0;
 
  protected:
   Scheduler * sched_;
+  static int next_process_id_;
+
+  void SetScheduler(Scheduler * sched) { sched_ = sched; }
+  static int GetNextProcessID() { return next_process_id_++; }
 };
 
 } // namespace internal

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,7 +29,7 @@
 
 #include <cstddef>
 
-#include <embb/mtapi/taskcontext.h>
+#include <embb/tasks/task_context.h>
 
 #include <embb/dataflow/internal/node.h>
 
@@ -48,7 +48,7 @@ class Action {
     pending_ = 0;
   }
 
-  void RunMTAPI(embb::mtapi::TaskContext & /*context*/) {
+  void RunMTAPI(embb::tasks::TaskContext & /*context*/) {
     pending_ = 1;
     node_->Run(clock_);
     pending_ = 0;

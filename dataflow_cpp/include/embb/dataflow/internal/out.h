@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -35,6 +35,8 @@ namespace embb {
 namespace dataflow {
 namespace internal {
 
+class Scheduler;
+
 template <typename Type, int Slices>
 class Out {
  public:
@@ -47,6 +49,12 @@ class Out {
   void Send(SignalType const & value) {
     for (size_t ii = 0; ii < targets_.size(); ii++) {
       targets_[ii]->Receive(value);
+    }
+  }
+
+  void SendInit(InitData * init_data) {
+    for (size_t ii = 0; ii < targets_.size(); ii++) {
+      targets_[ii]->ReceiveInit(init_data);
     }
   }
 

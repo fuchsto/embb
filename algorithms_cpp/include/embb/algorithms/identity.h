@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -33,11 +33,7 @@ namespace algorithms {
 /**
  * Unary identity functor.
  *
- * \ingroup CPP_ALGORITHMS_SCAN
- * \ingroup CPP_ALGORITHMS_REDUCTION
- * \ingroup CPP_ALGORITHMS_FOREACH
- * \ingroup CPP_ALGORITHMS_COUNT
- * \ingroup CPP_ALGORITHMS_SORTING
+ * \ingroup CPP_ALGORITHMS
  */
 struct Identity {
   /**

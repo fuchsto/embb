@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,62 +28,112 @@
 #define EMBB_MTAPI_AFFINITY_H_
 
 #include <embb/mtapi/c/mtapi.h>
+#include <embb/mtapi/internal/check_status.h>
 
 namespace embb {
 namespace mtapi {
 
 /**
-  * Describes the Affinity of a Task to worker threads.
-  *
-  * \ingroup CPP_MTAPI
-  */
+ * Describes the affinity of an Action or Task to a worker thread of a Node.
+ *
+ * \ingroup CPP_MTAPI
+ */
 class Affinity {
  public:
   /**
-    * Constructs an Affinity including all worker threads.
-    * \memory Calls embb::mtapi::Node::Initialize() which potentially allocates
-    * \throws ErrorException if the Affinity object could not be constructed.
-    */
-  Affinity();
+   * Constructs an Affinity object.
+   */
+  Affinity() {
+    Init(true);
+  }
 
   /**
-    * Constructs an Affinity including all or no worker threads.
-    * \memory Calls embb::mtapi::Node::Initialize() which potentially allocates
-    * \throws ErrorException if the Affinity object could not be constructed.
-    */
+   * Copies an Affinity object.
+   */
   Affinity(
-    bool initial_affinity              /**< [in] Initial affinity
-                                            (true = all worker threads,
-                                             false = no worker threads) */
-    );
+    Affinity const & other             /**< The Affinity to copy from */
+    )
+    : affinity_(other.affinity_) {
+    // empty
+  }
 
   /**
-    * Sets Affinity to a specific worker thread.
-    * \threadsafe
-    */
-  void Add(
-    mtapi_uint_t worker                /**< [in] Worker thread index */
-    );
+   * Copies an Affinity object.
+   */
+  void operator=(
+    Affinity const & other             /**< The Affinity to copy from */
+    ) {
+    affinity_ = other.affinity_;
+  }
 
   /**
-    * Removes Affinity to a specific worker thread.
-    * \threadsafe
-    */
-  void Remove(
-    mtapi_uint_t worker                /**< [in] Worker thread index */
-    );
+   * Constructs an Affinity object with the given initial affinity.
+   * If \c initial_affinity is \c true the Affinity will map to all worker
+   * threads, otherwise it will map to no worker threads.
+   */
+  Affinity(
+    bool initial_affinity              /**< The initial affinity to set. */
+    ) {
+    Init(initial_affinity);
+  }
 
   /**
-    * Checks if Affinity to a specific worker thread is set.
-    * \return \c true if \c *this is affine to the given worker, otherwise
-    * \c false.
-    * \threadsafe
-    */
-  bool IsSet(
-    mtapi_uint_t worker                /**< [in] Worker thread index */
-    );
+   * Initializes an Affinity object with the given initial affinity.
+   * If \c initial_affinity is \c true the Affinity will map to all worker
+   * threads, otherwise it will map to no worker threads.
+   *
+   * \notthreadsafe
+   */
+  void Init(
+    bool initial_affinity              /**< The initial affinity to set. */
+    ) {
+    mtapi_status_t status;
+    mtapi_boolean_t ia = initial_affinity ? MTAPI_TRUE : MTAPI_FALSE;
+    mtapi_affinity_init(&affinity_, ia, &status);
+    internal::CheckStatus(status);
+  }
 
-  friend class Task;
+  /**
+   * Sets affinity to the given worker.
+   *
+   * \notthreadsafe
+   */
+  void Set(
+    mtapi_uint_t worker,               /**< The worker to set affinity to. */
+    bool state                         /**< The state of the affinity. */
+    ) {
+    mtapi_status_t status;
+    mtapi_boolean_t st = state ? MTAPI_TRUE : MTAPI_FALSE;
+    mtapi_affinity_set(&affinity_, worker, st, &status);
+    internal::CheckStatus(status);
+  }
+
+  /**
+   * Gets affinity to the given worker.
+   *
+   * \returns \c true, if the Affinity maps to the worker, \c false otherwise.
+   * \waitfree
+   */
+  bool Get(
+    mtapi_uint_t worker                /**< The worker to get affinity of. */
+    ) {
+    mtapi_status_t status;
+    mtapi_boolean_t state =
+      mtapi_affinity_get(&affinity_, worker, &status);
+    internal::CheckStatus(status);
+    return (state != MTAPI_FALSE) ? true : false;
+  }
+
+  /**
+   * Returns the internal representation of this object.
+   * Allows for interoperability with the C interface.
+   *
+   * \returns The internal mtapi_affinity_t.
+   * \waitfree
+   */
+  mtapi_affinity_t GetInternal() const {
+    return affinity_;
+  }
 
  private:
   mtapi_affinity_t affinity_;

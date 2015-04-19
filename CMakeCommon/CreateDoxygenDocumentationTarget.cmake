@@ -1,4 +1,4 @@
-# Copyright (c) 2014, Siemens AG. All rights reserved.
+# Copyright (c) 2014-2015, Siemens AG. All rights reserved.
 # 
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
@@ -40,11 +40,6 @@ function (CreateDoxygenDocumentationTarget)
     if (TARGET doxygen)
       # Do nothing, since the repeated adding causes an error
     else()
-      set(DOXYGEN_TEMPLATE_FILES
-      "doc/reference/header.html")
-
-      file(COPY ${DOXYGEN_TEMPLATE_FILES} DESTINATION ${PROJECT_BINARY_DIR})
-
       add_custom_target (
         doxygen 
         #ALL

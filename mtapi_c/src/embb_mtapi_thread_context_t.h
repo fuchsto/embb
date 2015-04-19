@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -56,6 +56,7 @@ struct embb_mtapi_thread_context_struct {
   embb_condition_t work_available;
   embb_thread_t thread;
   embb_tss_t tss_id;
+  embb_atomic_int is_sleeping;
 
   embb_mtapi_node_t* node;
   embb_mtapi_task_queue_t** queue;

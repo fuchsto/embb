@@ -48,10 +48,10 @@ const char * kernel =
 "  int elements = arguments_size / sizeof(float) / 2;\n"
 "  if (ii >= elements)"
 "    return;"
-"  float* a = (float*)arguments;\n"
-"  float* b = ((float*)arguments) + elements;\n"
-"  float* c = (float*)result_buffer;\n"
-"  float* d = (float*)node_local_data;\n"
+"  __global float* a = (__global float*)arguments;\n"
+"  __global float* b = ((__global float*)arguments) + elements;\n"
+"  __global float* c = (__global float*)result_buffer;\n"
+"  __global float* d = (__global float*)node_local_data;\n"
 "  c[ii] = a[ii] + b[ii] + d[0];\n"
 "}\n";
 
@@ -65,13 +65,13 @@ void TaskTest::TestBasic() {
   mtapi_task_hndl_t task;
   mtapi_action_hndl_t action;
 
-  const int elements = 64;
-  float arguments[elements*2];
-  float results[elements];
+  const int kElements = 64;
+  float arguments[kElements * 2];
+  float results[kElements];
 
-  for (int ii = 0; ii < elements; ii++) {
-    arguments[ii] = (float)ii;
-    arguments[ii+elements] = (float)ii;
+  for (int ii = 0; ii < kElements; ii++) {
+    arguments[ii] = static_cast<float>(ii);
+    arguments[ii + kElements] = static_cast<float>(ii);
   }
 
   mtapi_opencl_plugin_initialize(&status);
@@ -100,8 +100,8 @@ void TaskTest::TestBasic() {
   task = mtapi_task_start(
     MTAPI_TASK_ID_NONE,
     job,
-    arguments, elements * 2 * sizeof(float),
-    results, elements*sizeof(float),
+    arguments, kElements * 2 * sizeof(float),
+    results, kElements*sizeof(float),
     MTAPI_DEFAULT_TASK_ATTRIBUTES,
     MTAPI_GROUP_NONE,
     &status);
@@ -109,6 +109,10 @@ void TaskTest::TestBasic() {
 
   mtapi_task_wait(task, MTAPI_INFINITE, &status);
   MTAPI_CHECK_STATUS(status);
+
+  for (int ii = 0; ii < kElements; ii++) {
+    PT_EXPECT_EQ(results[ii], ii * 2 + 1);
+  }
 
   mtapi_action_delete(action, MTAPI_INFINITE, &status);
   MTAPI_CHECK_STATUS(status);

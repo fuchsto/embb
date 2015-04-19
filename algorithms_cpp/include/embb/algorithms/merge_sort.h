@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -28,7 +28,7 @@
 #define EMBB_ALGORITHMS_MERGE_SORT_H_
 
 #include <functional>
-#include <embb/algorithms/execution_policy.h>
+#include <embb/tasks/execution_policy.h>
 #include <embb/base/memory_allocation.h>
 
 namespace embb {
@@ -59,7 +59,7 @@ namespace algorithms {
  *             modified by another thread while the algorithm is executed.
  * \note No guarantee is given on the execution order of the comparison
          operations.
- * \see ExecutionPolicy, MergeSort()
+ * \see embb::mtapi::ExecutionPolicy, MergeSort()
  * \tparam RAI Random access iterator
  * \tparam ComparisonFunction Binary predicate with both arguments of type
  *         <tt>std::iterator_traits<RAI>::value_type</tt>.
@@ -77,8 +77,8 @@ void MergeSortAllocate(
             \c a appears before an element \c b in the sorted range if
             <tt>comparison(a, b) == true</tt>. The default value uses the
             less-than relation. */
-  const ExecutionPolicy& policy = ExecutionPolicy(),
-  /**< [IN] ExecutionPolicy for the merge sort algorithm */
+  const embb::mtapi::ExecutionPolicy& policy = embb::mtapi::ExecutionPolicy(),
+  /**< [IN] embb::mtapi::ExecutionPolicy for the merge sort algorithm */
   size_t block_size = 0
   /**< [IN] Lower bound for partitioning the range of elements into blocks that
             are sorted in parallel. Partitioning of a block stops if its size
@@ -105,7 +105,7 @@ void MergeSortAllocate(
  *             modified by another thread while the algorithm is executed.
  * \note No guarantee is given on the execution order of the comparison
  *       operations.
- * \see ExecutionPolicy, MergeSortAllocate()
+ * \see embb::mtapi::ExecutionPolicy, MergeSortAllocate()
  * \tparam RAI Random access iterator
  * \tparam RAITemp Random access iterator for temporary memory. Has to have the
  *         same value type as RAI.
@@ -127,8 +127,8 @@ void MergeSort(
               \c a appears before an element \c b in the sorted range if
               <tt>comparison(a, b) == true</tt>. The default value uses the
               less-than relation. */
-  const ExecutionPolicy& policy = ExecutionPolicy(),
-  /**< [IN] ExecutionPolicy for the merge sort algorithm */
+  const embb::mtapi::ExecutionPolicy& policy = embb::mtapi::ExecutionPolicy(),
+  /**< [IN] embb::mtapi::ExecutionPolicy for the merge sort algorithm */
   size_t block_size = 0
   /**< [IN] Lower bound for partitioning the range of elements into blocks that
             are sorted in parallel. Partitioning of a block stops if its size
@@ -141,6 +141,56 @@ void MergeSort(
 #else // DOXYGEN
 
 /**
+ * Overload of above described Doxygen dummy.
+ */
+template<typename RAI, typename RAITemp, typename ComparisonFunction>
+void MergeSort(
+  RAI first,
+  RAI last,
+  RAITemp temporary_first,
+  ComparisonFunction comparison,
+  const embb::tasks::ExecutionPolicy& policy,
+  size_t block_size
+  );
+
+/**
+ * Overload of above described Doxygen dummy.
+ */
+template<typename RAI, typename ComparisonFunction>
+void MergeSortAllocate(
+  RAI first,
+  RAI last,
+  ComparisonFunction comparison,
+  const embb::tasks::ExecutionPolicy& policy,
+  size_t block_size
+  ) {
+  typedef base::Allocation Alloc;
+  typename std::iterator_traits<RAI>::difference_type distance = last - first;
+  typedef typename std::iterator_traits<RAI>::value_type value_type;
+  if (distance == 0) {
+    return;
+  } else if (distance < 0) {
+    EMBB_THROW(embb::base::ErrorException, "Negative range for MergeSort");
+  }
+  value_type* temporary = static_cast<value_type*>(
+                            Alloc::Allocate(distance * sizeof(value_type)));
+
+  EMBB_TRY {
+    MergeSort(first, last, temporary, comparison, policy, block_size);
+  } EMBB_CATCH (embb::base::ErrorException & e) {
+    // embb exception handling does not support catch(...) and rethrow yet.
+    Alloc::Free(temporary);
+
+    // Rethrow only, if exceptions are enabled... Otherwise, the parameter
+    // e cannot be used, as it is not defined.
+#ifdef EMBB_USE_EXCEPTIONS
+    EMBB_THROW(embb::base::ErrorException, e.what());
+#endif
+  }
+  Alloc::Free(temporary);
+}
+
+/**
  * Overload of above described Doxygen dummy with less arguments.
  */
 template<typename RAI>
@@ -150,7 +200,7 @@ void MergeSortAllocate(
   ) {
   MergeSortAllocate(first, last,
                     std::less<typename std::iterator_traits<RAI>::value_type>(),
-                    ExecutionPolicy(), 0);
+                    embb::tasks::ExecutionPolicy(), 0);
 }
 
 /**
@@ -162,7 +212,7 @@ void MergeSortAllocate(
   RAI last,
   ComparisonFunction comparison
   ) {
-  MergeSortAllocate(first, last, comparison, ExecutionPolicy(), 0);
+  MergeSortAllocate(first, last, comparison, embb::tasks::ExecutionPolicy(), 0);
 }
 
 /**
@@ -173,29 +223,9 @@ void MergeSortAllocate(
   RAI first,
   RAI last,
   ComparisonFunction comparison,
-  const ExecutionPolicy& policy
+  const embb::tasks::ExecutionPolicy& policy
   ) {
   MergeSortAllocate(first, last, comparison, policy, 0);
-}
-
-/**
- * Overload of above described Doxygen dummy.
- */
-template<typename RAI, typename ComparisonFunction>
-void MergeSortAllocate(
-  RAI first,
-  RAI last,
-  ComparisonFunction comparison,
-  const ExecutionPolicy& policy,
-  size_t block_size
-  ) {
-  typedef base::Allocation Alloc;
-  typename std::iterator_traits<RAI>::difference_type distance = last - first;
-  typedef typename std::iterator_traits<RAI>::value_type value_type;
-  value_type* temporary = static_cast<value_type*>(
-                          Alloc::Allocate(distance * sizeof(value_type)));
-  MergeSort(first, last, temporary, comparison, policy, block_size);
-  Alloc::Free(temporary);
 }
 
 /**
@@ -209,7 +239,7 @@ void MergeSort(
   ) {
   MergeSort(first, last, temporary_first,
             std::less<typename std::iterator_traits<RAI>::value_type>(),
-            ExecutionPolicy(), 0);
+            embb::tasks::ExecutionPolicy(), 0);
 }
 
 /**
@@ -222,7 +252,8 @@ void MergeSort(
   RAITemp temporary_first,
   ComparisonFunction comparison
   ) {
-  MergeSort(first, last, temporary_first, comparison, ExecutionPolicy(), 0);
+  MergeSort(first, last, temporary_first, comparison,
+    embb::tasks::ExecutionPolicy(), 0);
 }
 
 /**
@@ -234,23 +265,10 @@ void MergeSort(
   RAI last,
   RAITemp temporary_first,
   ComparisonFunction comparison,
-  const ExecutionPolicy& policy
+  const embb::tasks::ExecutionPolicy& policy
   ) {
   MergeSort(first, last, temporary_first, comparison, policy, 0);
 }
-
-/**
- * Overload of above described Doxygen dummy.
- */
-template<typename RAI, typename RAITemp, typename ComparisonFunction>
-void MergeSort(
-  const ExecutionPolicy& policy,
-  RAI first,
-  RAI last,
-  RAITemp temporary_first,
-  ComparisonFunction comparison,
-  size_t block_size
-  );
 
 #endif // else DOXYGEN
 

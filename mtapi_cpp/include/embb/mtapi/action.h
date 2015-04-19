@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -27,80 +27,113 @@
 #ifndef EMBB_MTAPI_ACTION_H_
 #define EMBB_MTAPI_ACTION_H_
 
-#include <embb/base/function.h>
-#include <embb/mtapi/taskcontext.h>
-#include <embb/mtapi/affinity.h>
+#include <embb/mtapi/internal/check_status.h>
+#include <embb/mtapi/action_attributes.h>
+#include <embb/mtapi/job.h>
 
 namespace embb {
 namespace mtapi {
 
 /**
-  * A function to be spawned as a Task.
-  *
-  * \ingroup CPP_MTAPI
-  */
+ * Holds the actual worker function used to execute a Task.
+ *
+ * \ingroup CPP_MTAPI
+ */
 class Action {
  public:
   /**
-    * Constructs an empty Action.
-    */
-  Action()
-    : function_()
-    , affinity_() {
-    // empty
-  }
-
-  /**
-    * Constructs an Action from any entity that provides an
-    * operator() (TaskContext &).
-    */
-  template <typename Function>
+   * Constructs an Action.
+   */
   Action(
-    Function func                      /**< [in] Anything that provides an
-                                            operator() (TaskContext &). */
-    )
-    : function_(func)
-    , affinity_() {
-    // empty
-  }
-
-  /**
-    * Constructs an Action from any entity that provides an
-    * operator() (TaskContext &) and an Affinity.
-    */
-  template <typename Function>
-  Action(
-    Function func,                     /**< [in] Anything that provides an
-                                            operator() (TaskContext &). */
-    Affinity affinity                  /**< [in] Core affinity */
-    )
-    : function_(func)
-    , affinity_(affinity) {
-    // empty
-  }
-
-  /**
-    * Executes the Action in a given TaskContext.
-    */
-  void operator() (
-    TaskContext & context              /**< [in, out] Context the operator
-                                            is executed in */
+    mtapi_job_id_t job_id,             /**< Job ID the Action belongs to */
+    mtapi_action_function_t func,      /**< The action function */
+    const void * node_local_data,      /**< Node local data available to all
+                                            Tasks using this Action */
+    mtapi_size_t node_local_data_size, /**< Size of node local data */
+    ActionAttributes const & attributes
+                                       /**< Attributes of the Action */
     ) {
-    function_(context);
+    Create(job_id, func, node_local_data, node_local_data_size,
+      &attributes.GetInternal());
   }
 
   /**
-    * Returns the Affinity specified during creation.
-    * \return The Affinity of the Action
-    * \waitfree
-    */
-  Affinity GetAffinity() const {
-    return affinity_;
+   * Constructs an Action.
+   */
+  Action(
+    mtapi_job_id_t job_id,             /**< Job ID the Action belongs to */
+    mtapi_action_function_t func,      /**< The action function */
+    const void * node_local_data,      /**< Node local data available to all
+                                            Tasks using this Action */
+    mtapi_size_t node_local_data_size  /**< Size of node local data */
+    ) {
+    Create(job_id, func, node_local_data, node_local_data_size,
+      MTAPI_DEFAULT_ACTION_ATTRIBUTES);
+  }
+
+  /**
+   * Constructs an Action.
+   */
+  Action(
+    mtapi_job_id_t job_id,             /**< Job ID the Action belongs to */
+    mtapi_action_function_t func,      /**< The action function */
+    ActionAttributes const & attributes
+                                       /**< Attributes of the Action */
+    ) {
+    Create(job_id, func, MTAPI_NULL, 0, &attributes.GetInternal());
+  }
+
+  /**
+   * Constructs an Action.
+   */
+  Action(
+    mtapi_job_id_t job_id,             /**< Job ID the Action belongs to */
+    mtapi_action_function_t func       /**< The action function */
+    ) {
+    Create(job_id, func, MTAPI_NULL, 0, MTAPI_DEFAULT_ACTION_ATTRIBUTES);
+  }
+
+  /**
+   * Destroys an Action.
+   */
+  ~Action() {
+    mtapi_action_delete(handle_, MTAPI_INFINITE, MTAPI_NULL);
+  }
+
+  /**
+   * Returns the internal representation of this object.
+   * Allows for interoperability with the C interface.
+   *
+   * \returns The internal mtapi_action_hndl_t.
+   * \waitfree
+   */
+  mtapi_action_hndl_t GetInternal() const {
+    return handle_;
   }
 
  private:
-  embb::base::Function<void, TaskContext &> function_;
-  Affinity affinity_;
+  // no default constructor
+  Action();
+
+  // not copyable
+  Action(Action const & other);
+  void operator=(Action const & other);
+
+  void Create(
+    mtapi_job_id_t job_id,
+    mtapi_action_function_t func,
+    const void * node_local_data,
+    mtapi_size_t node_local_data_size,
+    mtapi_action_attributes_t const * attributes
+    ) {
+    mtapi_status_t status;
+    handle_ = mtapi_action_create(job_id, func,
+      node_local_data, node_local_data_size,
+      attributes, &status);
+    internal::CheckStatus(status);
+  }
+
+  mtapi_action_hndl_t handle_;
 };
 
 } // namespace mtapi

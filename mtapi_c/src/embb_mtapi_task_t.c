@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -95,9 +95,11 @@ void embb_mtapi_task_finalize(embb_mtapi_task_t* that) {
   embb_mtapi_spinlock_finalize(&that->state_lock);
 }
 
-void embb_mtapi_task_execute(
+mtapi_boolean_t embb_mtapi_task_execute(
   embb_mtapi_task_t* that,
   embb_mtapi_task_context_t * context) {
+  unsigned int todo = that->attributes.num_instances;
+
   assert(MTAPI_NULL != that);
   assert(MTAPI_NULL != context);
 
@@ -110,17 +112,25 @@ void embb_mtapi_task_execute(
     embb_mtapi_action_t* local_action =
       embb_mtapi_action_pool_get_storage_for_handle(
       context->thread_context->node->action_pool, that->action);
-    local_action->action_function(
-      that->arguments,
-      that->arguments_size,
-      that->result_buffer,
-      that->result_size,
-      local_action->node_local_data,
-      local_action->node_local_data_size,
-      context);
+    /* only continue if there was no error so far */
+    if (context->task->error_code == MTAPI_SUCCESS) {
+      local_action->action_function(
+        that->arguments,
+        that->arguments_size,
+        that->result_buffer,
+        that->result_size,
+        local_action->node_local_data,
+        local_action->node_local_data_size,
+        context);
+    }
     embb_atomic_memory_barrier();
-    /* task has completed successfully */
-    embb_mtapi_task_set_state(that, MTAPI_TASK_COMPLETED);
+    todo = embb_atomic_fetch_and_add_unsigned_int(
+      &that->instances_todo, (unsigned int)-1);
+
+    if (todo == 1) {
+      /* task has completed successfully */
+      embb_mtapi_task_set_state(that, MTAPI_TASK_COMPLETED);
+    }
     embb_atomic_fetch_and_add_int(&local_action->num_tasks, -1);
   } else {
     /* action was deleted, task did not complete */
@@ -128,13 +138,18 @@ void embb_mtapi_task_execute(
     embb_mtapi_task_set_state(that, MTAPI_TASK_ERROR);
   }
 
-  /* is task associated with a group? */
-  if (embb_mtapi_group_pool_is_handle_valid(
-    context->thread_context->node->group_pool, that->group)) {
-    embb_mtapi_group_t* local_group =
-      embb_mtapi_group_pool_get_storage_for_handle(
-      context->thread_context->node->group_pool, that->group);
-    embb_mtapi_task_queue_push(&local_group->queue, that);
+  if (todo == 1) {
+    /* is task associated with a group? */
+    if (embb_mtapi_group_pool_is_handle_valid(
+      context->thread_context->node->group_pool, that->group)) {
+      embb_mtapi_group_t* local_group =
+        embb_mtapi_group_pool_get_storage_for_handle(
+        context->thread_context->node->group_pool, that->group);
+      embb_mtapi_task_queue_push(&local_group->queue, that);
+    }
+    return MTAPI_TRUE;
+  } else {
+    return MTAPI_FALSE;
   }
 }
 
@@ -189,6 +204,9 @@ static mtapi_task_hndl_t embb_mtapi_task_start(
           mtapi_taskattr_init(&task->attributes, &local_status);
         }
 
+        embb_atomic_store_unsigned_int(
+          &task->instances_todo, task->attributes.num_instances);
+
         if (embb_mtapi_group_pool_is_handle_valid(node->group_pool, group)) {
           embb_mtapi_group_t* local_group =
             embb_mtapi_group_pool_get_storage_for_handle(
@@ -209,9 +227,23 @@ static mtapi_task_hndl_t embb_mtapi_task_start(
           task->queue.id = EMBB_MTAPI_IDPOOL_INVALID_ID;
         }
 
-        /* load balancing is unsupported right now,
-           so always choose action 0 */
+        /* load balancing: choose action with minimum tasks */
         action_index = 0;
+        for (mtapi_uint_t ii = 0; ii < local_job->num_actions; ii++) {
+          if (embb_mtapi_action_pool_is_handle_valid(
+            node->action_pool, local_job->actions[ii])) {
+            embb_mtapi_action_t * act_m =
+              embb_mtapi_action_pool_get_storage_for_handle(
+              node->action_pool, local_job->actions[action_index]);
+            embb_mtapi_action_t * act_i =
+              embb_mtapi_action_pool_get_storage_for_handle(
+              node->action_pool, local_job->actions[ii]);
+            if (embb_atomic_load_int(&act_m->num_tasks) >
+              embb_atomic_load_int(&act_i->num_tasks)) {
+              action_index = ii;
+            }
+          }
+        }
         if (embb_mtapi_action_pool_is_handle_valid(
           node->action_pool, local_job->actions[action_index])) {
           task->action = local_job->actions[action_index];
@@ -239,12 +271,19 @@ static mtapi_task_hndl_t embb_mtapi_task_start(
           if (local_action->is_plugin_action) {
             /* schedule plugin task */
             mtapi_status_t plugin_status = MTAPI_ERR_UNKNOWN;
-            local_action->plugin_task_start_function(task_hndl, &plugin_status);
-            was_scheduled = (MTAPI_SUCCESS == plugin_status) ? MTAPI_TRUE : MTAPI_FALSE;
+            local_action->plugin_task_start_function(
+              task_hndl, &plugin_status);
+            was_scheduled = (MTAPI_SUCCESS == plugin_status) ?
+              MTAPI_TRUE : MTAPI_FALSE;
           } else {
             /* schedule local task */
-            was_scheduled =
-              embb_mtapi_scheduler_schedule_task(scheduler, task);
+            was_scheduled = MTAPI_TRUE;
+
+            for (mtapi_uint_t kk = 0; kk < task->attributes.num_instances;
+              kk++) {
+              was_scheduled = (mtapi_boolean_t)(was_scheduled &
+                embb_mtapi_scheduler_schedule_task(scheduler, task, kk));
+            }
           }
 
           if (was_scheduled) {
@@ -465,9 +504,11 @@ void mtapi_task_cancel(
       embb_mtapi_task_set_state(local_task, MTAPI_TASK_CANCELLED);
 
       /* call plugin action cancel function */
-      if (embb_mtapi_action_pool_is_handle_valid(node->action_pool, local_task->action)) {
+      if (embb_mtapi_action_pool_is_handle_valid(
+        node->action_pool, local_task->action)) {
         embb_mtapi_action_t* local_action =
-          embb_mtapi_action_pool_get_storage_for_handle(node->action_pool, local_task->action);
+          embb_mtapi_action_pool_get_storage_for_handle(
+          node->action_pool, local_task->action);
         if (local_action->is_plugin_action) {
           local_action->plugin_task_cancel_function(task, &local_status);
         }

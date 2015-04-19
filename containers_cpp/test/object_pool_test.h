@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -39,7 +39,7 @@ class ObjectPoolTestStruct {
   int thread_id;
  public:
   explicit ObjectPoolTestStruct(int thread_id);
-  int GetThreadId();
+  int GetThreadId() const;
 };
 
 template<typename ValuePool>

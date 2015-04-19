@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,18 +26,23 @@
 
 #include "./hazard_pointer_test.h"
 
+#include <embb/base/internal/config.h>
+
 namespace embb {
 namespace containers {
 namespace test {
 HazardPointerTest::HazardPointerTest() :
-#ifdef _MSC_VER
+#ifdef EMBB_PLATFORM_COMPILER_MSVC
 #pragma warning(push)
 #pragma warning(disable:4355)
 #endif
   delete_pointer_callback(*this, &HazardPointerTest::DeletePointerCallback),
-#ifdef _MSC_VER
+#ifdef EMBB_PLATFORM_COMPILER_MSVC
 #pragma warning(pop)
 #endif
+  object_pool(NULL),
+  stack(NULL),
+  hp(NULL),
 n_threads(static_cast<int>
   (partest::TestSuite::GetDefaultNumThreads())) {
   n_elements_per_thread = 100;
@@ -57,7 +62,8 @@ n_threads(static_cast<int>
     Pre(&HazardPointerTest::HazardPointerTest1_Pre, this).
     Add(
     &HazardPointerTest::HazardPointerTest1_ThreadMethod,
-    this, static_cast<size_t>(n_threads));
+    this, static_cast<size_t>(n_threads)).
+    Post(&HazardPointerTest::HazardPointerTest1_Post, this);
 }
 
 void HazardPointerTest::HazardPointerTest1_Pre() {
@@ -70,6 +76,12 @@ void HazardPointerTest::HazardPointerTest1_Pre() {
     (delete_pointer_callback,
     NULL,
     1);
+}
+
+void HazardPointerTest::HazardPointerTest1_Post() {
+  delete object_pool;
+  delete stack;
+  delete hp;
 }
 
 void HazardPointerTest::HazardPointerTest1_ThreadMethod() {

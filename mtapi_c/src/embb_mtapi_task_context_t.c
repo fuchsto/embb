@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -51,8 +51,8 @@ void embb_mtapi_task_context_initialize_with_thread_context_and_task(
   that->task = task;
   that->thread_context = thread_context;
   that->num_instances = task->attributes.num_instances;
-  that->instance_num = embb_atomic_fetch_and_add_unsigned_int(
-    &task->current_instance, 1);
+  that->instance_num =
+    embb_atomic_fetch_and_add_unsigned_int(&task->current_instance, 1);
 }
 
 void embb_mtapi_task_context_finalize(embb_mtapi_task_context_t* that) {

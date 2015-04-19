@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,13 +29,17 @@
 #include <iostream>
 #include <sstream>
 
-#include <embb/mtapi/mtapi.h>
+#include <embb/tasks/tasks.h>
 
 #include <embb/base/function.h>
+#include <embb/base/c/memory_allocation.h>
 
 #include <embb/dataflow/dataflow.h>
 
-typedef embb::dataflow::Network<4> MyNetwork;
+#define NUM_SLICES 8
+#define TEST_COUNT 12
+
+typedef embb::dataflow::Network<8> MyNetwork;
 typedef MyNetwork::ConstantSource< int > MyConstantSource;
 typedef MyNetwork::Source< int > MySource;
 typedef MyNetwork::SerialProcess< MyNetwork::Inputs<int>::Type,
@@ -48,8 +52,6 @@ typedef MyNetwork::Sink< int > MySink;
 typedef MyNetwork::Switch< int > MySwitch;
 typedef MyNetwork::Select< int > MySelect;
 
-#define TEST_COUNT 12
-
 embb::base::Atomic<int> source_counter;
 int source_array[TEST_COUNT];
 
@@ -59,7 +61,7 @@ bool sourceFunc(int & out) {
   source_array[source_counter] = out;
   source_counter++;
 
-  return source_counter < 12;
+  return source_counter < TEST_COUNT;
 }
 
 embb::base::Atomic<int> pred_counter;
@@ -103,7 +105,7 @@ class ArraySink {
     Init();
   }
 
-  void Print() {
+  void Print() const {
     std::cout << values_[0];
     for (int ii = 1; ii < SIZE; ii++) {
       std::cout << ", " << values_[ii];
@@ -118,7 +120,7 @@ class ArraySink {
     pos_ = 0;
   }
 
-  bool Check() {
+  bool Check() const {
     for (int ii = 0; ii < SIZE; ii++) {
       int expected;
       if (0 == (ii % 2))
@@ -141,8 +143,24 @@ SimpleTest::SimpleTest() {
   CreateUnit("dataflow_cpp simple test").Add(&SimpleTest::TestBasic, this);
 }
 
+#define MTAPI_DOMAIN_ID 1
+#define MTAPI_NODE_ID 1
+
 void SimpleTest::TestBasic() {
-  embb::mtapi::Node::Initialize(1, 1);
+  // All available cores
+  embb::base::CoreSet core_set(true);
+  unsigned int num_cores = core_set.Count();
+  embb::tasks::Node::Initialize(
+    MTAPI_DOMAIN_ID,
+    MTAPI_NODE_ID,
+    core_set,
+    1024, // max tasks (default: 1024)
+    128,  // max groups (default: 128)
+    // Currently needs to be initialized
+    // with (max_queues + 1), see defect embb449
+    num_cores + 1, // max queues (default: 16)
+    1024, // queue capacity (default: 1024)
+    4);   // num priorities (default: 4)
 
   for (int ii = 0; ii < 10000; ii++) {
     ArraySink<TEST_COUNT> asink;
@@ -162,6 +180,7 @@ void SimpleTest::TestBasic() {
       filter_array[kk] = -1;
       mult_array[kk] = -1;
     }
+
     source_counter = 0;
     pred_counter = 0;
     mult_counter = 0;
@@ -185,22 +204,20 @@ void SimpleTest::TestBasic() {
 
     sel.GetOutput<0>() >> sink.GetInput<0>();
 
-    network.Add(constant);
-    network.Add(source);
+    network.AddSource(constant);
+    network.AddSource(source);
 
-    network.Add(filter);
-    network.Add(mult);
-
-    network.Add(pred);
-    network.Add(sw);
-    network.Add(sel);
-
-    network.Add(sink);
-
-    network();
+    try {
+      network();
+    } catch (embb::base::ErrorException & e) {
+      PT_ASSERT_MSG(false, e.What());
+    }
 
     PT_EXPECT(asink.Check());
   }
 
-  embb::mtapi::Node::Finalize();
+  embb::tasks::Node::Finalize();
+
+  PT_EXPECT(embb_get_bytes_allocated() == 0);
 }
+

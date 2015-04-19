@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -25,7 +25,7 @@
  */
 
 #include <partest/partest.h>
-#include <embb/mtapi/mtapi.h>
+#include <embb/tasks/tasks.h>
 
 #include <iostream>
 #include <sstream>
@@ -44,6 +44,8 @@
 #include <vector>
 #include <time.h>
 #include <functional>
+
+#include <embb/base/c/memory_allocation.h>
 
 #define THIS_DOMAIN_ID 1
 #define THIS_NODE_ID 1
@@ -64,7 +66,8 @@ int compute1_() {
 }
 
 PT_MAIN("Algorithms") {
-  embb::mtapi::Node::Initialize(THIS_DOMAIN_ID, THIS_NODE_ID);
+  embb::tasks::Node::Initialize(THIS_DOMAIN_ID, THIS_NODE_ID);
+
   PT_RUN(PartitionerTest);
   PT_RUN(ForEachTest);
   PT_RUN(ReduceTest);
@@ -75,7 +78,10 @@ PT_MAIN("Algorithms") {
   PT_RUN(MergeSortTest);
   PT_RUN(InvokeTest);
 
-  embb::mtapi::Node::Finalize();
+  embb::tasks::Node::Finalize();
+
+  PT_EXPECT(embb_get_bytes_allocated() == 0);
+
   //  std::cout << "please press return to continue..." << std::endl;
   //  std::cin.get();
 }

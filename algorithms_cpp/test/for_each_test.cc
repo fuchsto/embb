@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -26,7 +26,7 @@
 
 #include <for_each_test.h>
 #include <embb/algorithms/for_each.h>
-#include <embb/algorithms/execution_policy.h>
+#include <embb/tasks/execution_policy.h>
 #include <vector>
 #include <deque>
 #include <sstream>
@@ -38,7 +38,7 @@
  */
 struct Square {
   template<typename Type>
-  void operator()(Type& l) {
+  void operator()(Type& l) const {
     l = l * l;
   }
 };
@@ -166,7 +166,7 @@ void ForEachTest::TestRanges() {
 
 void ForEachTest::TestBlockSizes() {
   using embb::algorithms::ForEach;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   size_t count = 4;
   std::vector<int> init(count);
   std::vector<int> vector(count);
@@ -186,7 +186,7 @@ void ForEachTest::TestBlockSizes() {
 
 void ForEachTest::TestPolicy() {
   using embb::algorithms::ForEach;
-  using embb::algorithms::ExecutionPolicy;
+  using embb::tasks::ExecutionPolicy;
   size_t count = 4;
   std::vector<int> init(count);
   std::vector<int> vector(count);
@@ -207,22 +207,41 @@ void ForEachTest::TestPolicy() {
   }
 
   vector = init;
-  ForEach(vector.begin(), vector.end(), Square(), ExecutionPolicy(false));
-  for (size_t i = 0; i < count; i++) {
-    PT_EXPECT_EQ(vector[i], init[i]*init[i]);
-  }
-
-  vector = init;
   ForEach(vector.begin(), vector.end(), Square(), ExecutionPolicy(true, 1));
   for (size_t i = 0; i < count; i++) {
     PT_EXPECT_EQ(vector[i], init[i]*init[i]);
   }
+
+  // ForEach on empty list should not throw:
+  ForEach(vector.begin(), vector.begin(), Square());
+
+#ifdef EMBB_USE_EXCEPTIONS
+  bool empty_core_set_thrown = false;
+  try {
+    ForEach(vector.begin(), vector.end(), Square(), ExecutionPolicy(false));
+  }
+  catch (embb::base::ErrorException &) {
+    empty_core_set_thrown = true;
+  }
+  PT_EXPECT_MSG(empty_core_set_thrown,
+    "Empty core set should throw ErrorException");
+  bool negative_range_thrown = false;
+  try {
+    std::vector<int>::iterator second = vector.begin() + 1;
+    ForEach(second, vector.begin(), Square());
+  }
+  catch (embb::base::ErrorException &) {
+    negative_range_thrown = true;
+  }
+  PT_EXPECT_MSG(negative_range_thrown,
+    "Negative range should throw ErrorException");
+#endif
 }
 
 void ForEachTest::StressTest() {
   using embb::algorithms::ForEach;
-  using embb::algorithms::ExecutionPolicy;
-  size_t count = embb::mtapi::Node::GetInstance().GetCoreCount() *10;
+  using embb::tasks::ExecutionPolicy;
+  size_t count = embb::tasks::Node::GetInstance().GetCoreCount() * 10;
   std::vector<int> large_vector(count);
   for (size_t i = 0; i < count; i++) {
     large_vector[i] = static_cast<int>((i + 2) % 1000);

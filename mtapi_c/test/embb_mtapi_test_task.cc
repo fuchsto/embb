@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2014, Siemens AG. All rights reserved.
+ * Copyright (c) 2014-2015, Siemens AG. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -29,9 +29,11 @@
 #include <embb_mtapi_test_config.h>
 #include <embb_mtapi_test_task.h>
 
+#include <embb/base/c/memory_allocation.h>
 #include <embb/base/c/internal/unused.h>
 
 #define JOB_TEST_TASK 42
+#define JOB_TEST_MULTIINSTANCE_TASK 43
 #define TASK_TEST_ID 23
 
 static void testTaskAction(
@@ -43,14 +45,51 @@ static void testTaskAction(
   mtapi_size_t /*node_local_data_size*/,
   mtapi_task_context_t* task_context) {
   int ii;
-  mtapi_uint_t core_num = mtapi_context_corenum_get(task_context, MTAPI_NULL);
+  mtapi_status_t status;
+  mtapi_uint_t core_num = mtapi_context_corenum_get(task_context, &status);
+  MTAPI_CHECK_STATUS(status);
   srand(core_num);
   for (ii = 1000; ii < rand()%1000000; ii ++) {
   }
   embb_mtapi_log_info("testTaskAction %d called from worker %d...\n",
     *reinterpret_cast<const int*>(args), core_num);
-  EMBB_UNUSED_IN_RELEASE(args);
+  EMBB_UNUSED(args);
 }
+
+void testMultiInstanceTaskAction(
+  const void* args,
+  mtapi_size_t arg_size,
+  void* result_buffer,
+  mtapi_size_t result_buffer_size,
+  const void* node_local_data,
+  mtapi_size_t node_local_data_size,
+  mtapi_task_context_t* task_context) {
+  EMBB_UNUSED(args);
+  EMBB_UNUSED(arg_size);
+
+  EMBB_UNUSED(node_local_data);
+  EMBB_UNUSED(node_local_data_size);
+
+  mtapi_status_t status;
+  mtapi_uint_t this_instance, num_instances;
+  mtapi_uint_t* result;
+  num_instances = mtapi_context_numinst_get(task_context, &status);
+  this_instance = mtapi_context_instnum_get(task_context, &status);
+
+  /* check result buffer size... */
+  if (result_buffer_size == sizeof(int) * num_instances) {
+    /* ... and cast the result buffer */
+    result = reinterpret_cast<mtapi_uint_t*>(result_buffer);
+  } else {
+    mtapi_context_status_set(task_context, MTAPI_ERR_RESULT_SIZE, &status);
+    MTAPI_CHECK_STATUS(status);
+    return;
+  }
+
+  /* dummy for calculating result */
+  result[this_instance] = this_instance;
+}
+
 
 static void testDoSomethingElse() {
 }
@@ -150,7 +189,7 @@ void TaskTest::TestBasic() {
 
   for (ii = 0; ii < 100; ii++) {
     status = MTAPI_ERR_UNKNOWN;
-    mtapi_task_wait(task[ii], 100, &status);
+    mtapi_task_wait(task[ii], 100000, &status);
     MTAPI_CHECK_STATUS(status);
   }
 
@@ -159,8 +198,66 @@ void TaskTest::TestBasic() {
   MTAPI_CHECK_STATUS(status);
 
   status = MTAPI_ERR_UNKNOWN;
+  mtapi_action_hndl_t multiinstance_action = mtapi_action_create(
+    JOB_TEST_MULTIINSTANCE_TASK,
+    testMultiInstanceTaskAction,
+    MTAPI_NULL,
+    0,
+    &action_attr,
+    &status);
+  MTAPI_CHECK_STATUS(status);
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_job_hndl_t multiinstance_job = mtapi_job_get(
+    JOB_TEST_MULTIINSTANCE_TASK, THIS_DOMAIN_ID, &status);
+  MTAPI_CHECK_STATUS(status);
+
+  mtapi_task_attributes_t task_attr;
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_taskattr_init(&task_attr, &status);
+  MTAPI_CHECK_STATUS(status);
+
+  const mtapi_uint_t kTaskInstances = 5;
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_taskattr_set(&task_attr, MTAPI_TASK_INSTANCES,
+    &kTaskInstances, sizeof(mtapi_uint_t),
+    &status);
+  MTAPI_CHECK_STATUS(status);
+
+  mtapi_uint_t result[kTaskInstances];
+  for (mtapi_uint_t ii = 0; ii < kTaskInstances; ii++) {
+    result[ii] = kTaskInstances + 1;
+  }
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_task_hndl_t multiinstance_task =
+    mtapi_task_start(MTAPI_TASK_ID_NONE, multiinstance_job,
+    MTAPI_NULL, 0,
+    &result[0], sizeof(mtapi_uint_t) * kTaskInstances,
+    &task_attr,
+    MTAPI_GROUP_NONE,
+    &status);
+  MTAPI_CHECK_STATUS(status);
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_task_wait(multiinstance_task, MTAPI_INFINITE, &status);
+  MTAPI_CHECK_STATUS(status);
+
+  for (mtapi_uint_t ii = 0; ii < kTaskInstances; ii++) {
+    PT_EXPECT_EQ(result[ii], ii);
+  }
+
+  status = MTAPI_ERR_UNKNOWN;
+  mtapi_action_delete(multiinstance_action, 10, &status);
+  MTAPI_CHECK_STATUS(status);
+
+  status = MTAPI_ERR_UNKNOWN;
   mtapi_finalize(&status);
   MTAPI_CHECK_STATUS(status);
+
+  PT_EXPECT_EQ(embb_get_bytes_allocated(), 0u);
 
   embb_mtapi_log_info("...done\n\n");
 }
